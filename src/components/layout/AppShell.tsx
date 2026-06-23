@@ -54,7 +54,7 @@ function Sidebar({ mobileOpen, desktopOpen, setMobileOpen }: { mobileOpen: boole
     )}>
       <div className={cn("flex h-16 items-center border-b border-gray-100/50 dark:border-gray-800/50 overflow-hidden", desktopOpen ? "px-6" : "md:px-0 md:justify-center px-6")}>
         <div className="flex items-center gap-2 text-blue-700 dark:text-blue-500 font-bold text-xl tracking-tight whitespace-nowrap">
-          <img src="/logo_kota_tangerang_selatan.png" alt="SIMOSDA Logo" className="w-9 h-9 object-contain" />
+          <img src={`${import.meta.env.BASE_URL}logo_kota_tangerang_selatan.png`} alt="SIMOSDA Logo" className="w-9 h-9 object-contain" />
           <span className={cn("transition-all duration-300 origin-left", desktopOpen ? "opacity-100 scale-100 w-auto" : "md:opacity-0 md:scale-0 md:w-0 opacity-100 scale-100 w-auto")}>SIMOSDA</span>
         </div>
       </div>

@@ -33,7 +33,7 @@ export default function Login() {
 
       <div className="w-full max-w-md neuglass p-8 rounded-[32px] relative z-10">
         <div className="flex flex-col items-center mb-8">
-          <img src="/logo_kota_tangerang_selatan.png" alt="SIMOSDA Logo" className="w-24 h-24 object-contain mb-4 drop-shadow-md" />
+          <img src={`${import.meta.env.BASE_URL}logo_kota_tangerang_selatan.png`} alt="SIMOSDA Logo" className="w-24 h-24 object-contain mb-4 drop-shadow-md" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 text-center tracking-tight">Login SIMOSDA</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Sistem Informasi Monitoring Aset Daerah</p>
         </div>
