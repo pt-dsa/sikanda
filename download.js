@@ -19,4 +19,4 @@ if (!fs.existsSync(dir)) {
   fs.mkdirSync(dir);
 }
 
-download('https://lh3.googleusercontent.com/d/1PAbK2PRZfAkjtpMTy0vBJjR_1yatxIKN', 'public/logo_kota_tangerang_selatan.png');
+await download('https://lh3.googleusercontent.com/d/1PAbK2PRZfAkjtpMTy0vBJjR_1yatxIKN', 'public/logo_kota_tangerang_selatan.png');
