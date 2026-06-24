@@ -26,44 +26,46 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F3F7FB] dark:bg-gray-950 p-4 relative overflow-hidden">
-      {/* Decorative background blur */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-400/20 dark:bg-blue-600/10 blur-[100px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-300/20 dark:bg-blue-800/10 blur-[100px]" />
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: `url(${import.meta.env.BASE_URL}images_landingpage.png), url(https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop)` }}
+    >
+      {/* Dark overlay with slight blur */}
+      <div className="absolute inset-0 bg-black/10 dark:bg-black/40 backdrop-blur-[2px]"></div>
 
-      <div className="w-full max-w-md neuglass p-8 rounded-[32px] relative z-10">
-        <div className="flex flex-col items-center mb-8">
-          <img src={`${import.meta.env.BASE_URL}logo_kota_tangerang_selatan.png`} alt="SIMOSDA Logo" className="w-24 h-24 object-contain mb-4 drop-shadow-md" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 text-center tracking-tight">Login SIMOSDA</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Sistem Informasi Monitoring Aset Daerah</p>
+      <div className="w-full max-w-lg bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl shadow-2xl border border-white/50 dark:border-gray-700/50 p-6 sm:p-10 rounded-[32px] relative z-10 transition-all duration-300 mx-4 mt-8 sm:-mt-16">
+        <div className="flex flex-col items-center mb-8 text-center">
+          <img src={`${import.meta.env.BASE_URL}logo_kota_tangerang_selatan.png`} alt="SIMOSDA Logo" className="w-[80px] h-[80px] sm:w-[90px] sm:h-[90px] object-contain mb-5 drop-shadow-md" />
+          <h1 className="text-2xl sm:text-[27px] font-bold text-gray-900 dark:text-gray-100 tracking-tight">Selamat Datang di SIKANDA</h1>
+          <p className="text-gray-700 dark:text-gray-300 text-sm sm:text-[17px] font-[system-ui] leading-snug mt-2 font-medium max-w-sm">Sistem Informasi Kepegawaian dan Pengelolaan Aset Daerah</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-5 flex flex-col items-center w-full max-w-[400px] mx-auto">
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-xl text-sm text-center border border-red-100 dark:border-red-800/50">
+            <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm text-center border border-red-100 dark:border-red-800/50 w-full">
               {error}
             </div>
           )}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 ml-1">Username</label>
+          <div className="w-full">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 ml-4">Username</label>
             <input
               type="text"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 rounded-full neuglass-pressed text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-400"
+              className="w-full px-5 py-3.5 text-base rounded-full neuglass-pressed text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-400"
               placeholder="Masukkan username"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 ml-1">Password</label>
+          <div className="w-full">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 ml-4">Password</label>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 pr-12 rounded-full neuglass-pressed text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-400"
+                className="w-full px-5 py-3.5 text-base pr-12 rounded-full neuglass-pressed text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-400"
                 placeholder="Masukkan password"
               />
               <button
@@ -77,9 +79,9 @@ export default function Login() {
           </div>
           <button
             type="submit"
-            className="w-full mt-6 bg-[#0B57D0] hover:bg-[#0842A0] text-white font-medium py-3 rounded-full transition-all shadow-[8px_8px_16px_rgba(11,87,208,0.2),-8px_-8px_16px_rgba(255,255,255,0.8)] dark:shadow-[8px_8px_16px_rgba(0,0,0,0.6),-8px_-8px_16px_rgba(11,87,208,0.1)] active:shadow-[inset_6px_6px_10px_rgba(0,0,0,0.2)] flex justify-center items-center gap-2"
+            className="w-full sm:w-[319px] mt-6 text-base bg-[#0B57D0] hover:bg-[#0842A0] text-white font-medium py-3.5 rounded-full transition-all shadow-[6px_6px_12px_rgba(11,87,208,0.2),-6px_-6px_12px_rgba(255,255,255,0.8)] dark:shadow-[6px_6px_12px_rgba(0,0,0,0.6),-6px_-6px_12px_rgba(11,87,208,0.1)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.2)] flex justify-center items-center gap-2"
           >
-            Masuk ke Sistem
+            Login
           </button>
         </form>
         

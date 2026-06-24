@@ -4,20 +4,33 @@ import { Vehicle } from "@/types";
 import { StatusBadge } from "@/components/ui/Badge";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Card, CardContent } from "@/components/ui/Card";
-import { QrCode, MapPin, Plus, Edit2, Trash2, X, ImageOff, AlertCircle } from "lucide-react";
+import { QrCode, MapPin, Plus, Edit2, Trash2, X, ImageOff, AlertCircle, ZoomIn, CheckSquare } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { DetailModal } from "@/components/ui/DetailModal";
+import { TableSkeleton } from "@/components/ui/TableSkeleton";
+import { useToast } from "@/components/ui/Toast";
+import { useLocation } from "react-router-dom";
 
 export default function Kendaraan() {
+  const toast = useToast();
+  const location = useLocation();
   const [data, setData] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterJenis, setFilterJenis] = useState("");
   const [filterKondisi, setFilterKondisi] = useState("");
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const q = params.get("search");
+    if (q) setSearch(q);
+  }, [location.search]);
+
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<Vehicle | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Vehicle[]>([]);
   
   // CRUD states
   const [isEditing, setIsEditing] = useState(false);
@@ -38,6 +51,26 @@ export default function Kendaraan() {
   const handleDelete = (id: string) => {
     if (confirm("Apakah anda yakin ingin menghapus data kendaraan ini?")) {
       setData(prev => prev.filter(item => item.asset_id !== id));
+      setSelectedRows(prev => prev.filter(item => item.asset_id !== id));
+      toast.success("Data Dihapus", "Data kendaraan berhasil dihapus.");
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (confirm(`Apakah anda yakin ingin menghapus ${selectedRows.length} data kendaraan secara massal?`)) {
+      const idsToDelete = new Set(selectedRows.map(r => r.asset_id));
+      setData(prev => prev.filter(item => !idsToDelete.has(item.asset_id)));
+      setSelectedRows([]);
+      toast.success("Data Dihapus", `${selectedRows.length} data kendaraan berhasil dihapus.`);
+    }
+  };
+
+  const handleBulkUpdateStatus = (newStatus: string) => {
+    if (confirm(`Apakah anda yakin ingin mengubah status ${selectedRows.length} kendaraan menjadi ${newStatus}?`)) {
+      const idsToUpdate = new Set(selectedRows.map(r => r.asset_id));
+      setData(prev => prev.map(item => idsToUpdate.has(item.asset_id) ? { ...item, kondisi: newStatus } : item));
+      setSelectedRows([]);
+      toast.success("Status Diperbarui", `${selectedRows.length} data kendaraan berhasil diperbarui.`);
     }
   };
 
@@ -45,12 +78,14 @@ export default function Kendaraan() {
     e.preventDefault();
     if (formData.asset_id) {
       setData(prev => prev.map(item => item.asset_id === formData.asset_id ? { ...item, ...formData } as Vehicle : item));
+      toast.success("Data Disimpan", "Perubahan data kendaraan berhasil disimpan.");
     } else {
       const newItem = {
         ...formData,
         asset_id: `VEH${Date.now()}`,
       } as Vehicle;
       setData(prev => [newItem, ...prev]);
+      toast.success("Data Ditambahkan", "Data kendaraan baru berhasil ditambahkan.");
     }
     setIsEditing(false);
     setFormData({});
@@ -134,7 +169,7 @@ export default function Kendaraan() {
         <div className="flex justify-end gap-2">
           {row.latitude && row.longitude && (
             <a 
-              href={`https://maps.google.com/?q=${row.latitude},${row.longitude}`}
+              href={`https://maps.google.com/?q=${String(row.latitude).replace(',', '.').trim()},${String(row.longitude).replace(',', '.').trim()}`}
               target="_blank" rel="noreferrer"
               className="p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300 transition-colors"
               title="Buka di Maps"
@@ -170,37 +205,37 @@ export default function Kendaraan() {
 
   const renderMobileCard = (row: Vehicle) => (
     <div className="space-y-3">
-      <div className="flex justify-between items-start">
-        <div>
-          <div className="font-bold text-lg text-gray-900 dark:text-gray-100">{row.no_polisi}</div>
-          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{row.merk} {row.tipe} {row.tahun ? `(${row.tahun})` : ""}</div>
+      <div className="flex justify-between items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="font-bold text-lg text-gray-900 dark:text-gray-100 truncate">{row.no_polisi}</div>
+          <div className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{row.merk} {row.tipe} {row.tahun ? `(${row.tahun})` : ""}</div>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
           <StatusBadge status={row.kondisi || ""} />
           {isMaintenanceDue(row.km_kendaraan) && (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
               <AlertCircle size={10} />
-              Segera Servis
+              Segera
             </span>
           )}
         </div>
       </div>
       
-      <div className="text-sm text-gray-600 dark:text-gray-400 grid grid-cols-2 gap-2">
-        <div>
+      <div className="hidden sm:grid grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-400">
+        <div className="min-w-0">
           <span className="block text-xs text-gray-400 dark:text-gray-500">Jenis</span>
-          {row.jenis_kendaraan || "-"}
+          <span className="truncate block">{row.jenis_kendaraan || "-"}</span>
         </div>
-        <div>
+        <div className="min-w-0">
           <span className="block text-xs text-gray-400 dark:text-gray-500">Pengguna</span>
-          {row.pengguna || "-"}
+          <span className="truncate block">{row.pengguna || "-"}</span>
         </div>
       </div>
       
       <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-800 justify-end">
         {row.latitude && row.longitude && (
           <a 
-            href={`https://maps.google.com/?q=${row.latitude},${row.longitude}`}
+            href={`https://maps.google.com/?q=${String(row.latitude).replace(',', '.').trim()},${String(row.longitude).replace(',', '.').trim()}`}
             target="_blank" rel="noreferrer"
             className="p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300 transition-colors"
             title="Buka di Maps"
@@ -233,7 +268,7 @@ export default function Kendaraan() {
     </div>
   );
 
-  if (loading) return <div className="p-8 text-center text-gray-500 dark:text-gray-400">Loading...</div>;
+  if (loading) return <TableSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -282,12 +317,53 @@ export default function Kendaraan() {
         </CardContent>
       </Card>
 
+      {selectedRows.length > 0 && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
+            <CheckSquare size={18} />
+            <span>{selectedRows.length} Kendaraan Terpilih</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">Ubah Status:</span>
+            <button onClick={() => handleBulkUpdateStatus("BAIK")} className="px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 rounded-full text-xs font-semibold transition-colors">BAIK</button>
+            <button onClick={() => handleBulkUpdateStatus("RUSAK RINGAN")} className="px-3 py-1.5 bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 rounded-full text-xs font-semibold transition-colors">RUSAK RINGAN</button>
+            <button onClick={() => handleBulkUpdateStatus("RUSAK BERAT")} className="px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 rounded-full text-xs font-semibold transition-colors">RUSAK BERAT</button>
+            <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1"></div>
+            <button onClick={handleBulkDelete} className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-900 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full text-xs font-semibold transition-colors shadow-sm">
+              <Trash2 size={12} />
+              Hapus Massal
+            </button>
+          </div>
+        </div>
+      )}
+
       <DataTable 
         data={filteredData} 
         columns={columns} 
         searchQuery={search}
-        renderMobileCard={renderMobileCard}
+        renderMobileCard={(row, isSelected, onToggle) => (
+          <div className="relative">
+            {onToggle && (
+              <div 
+                className="absolute -left-2 -top-2 z-10 p-3 cursor-pointer" 
+                onClick={(e) => { e.stopPropagation(); onToggle(); }}
+              >
+                <input 
+                  type="checkbox" 
+                  checked={isSelected} 
+                  readOnly 
+                  className="w-5 h-5 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-600 shadow-sm pointer-events-none" 
+                />
+              </div>
+            )}
+            {renderMobileCard(row)}
+          </div>
+        )}
         onRowClick={(row) => setSelectedItem(row)}
+        selectable={true}
+        selectedItems={selectedRows}
+        onSelectionChange={setSelectedRows}
+        getId={(row) => row.asset_id as string}
       />
 
       <DetailModal 
@@ -317,17 +393,25 @@ export default function Kendaraan() {
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex flex-col items-center gap-2">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Foto Kendaraan</span>
-              <div className="w-full aspect-video bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden flex items-center justify-center relative">
+              <div className="w-full aspect-video bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden flex items-center justify-center relative group">
                 {(selectedItem as any).foto ? (
-                  <img 
-                    src={(selectedItem as any).foto} 
-                    alt="Foto" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://placehold.co/600x400/e2e8f0/64748b?text=Image+Not+Found`;
-                      (e.target as HTMLImageElement).onerror = null;
-                    }}
-                  />
+                  <>
+                    <img 
+                      src={(selectedItem as any).foto.includes("Kendaraan_Images") 
+                        ? `https://www.appsheet.com/template/gettablefileurl?appName=SIMOSDA-845158139&tableName=Kendaraan&fileName=${encodeURIComponent((selectedItem as any).foto)}` 
+                        : (selectedItem as any).foto} 
+                      alt="Foto" 
+                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity bg-white"
+                      onClick={(e) => setZoomedImage(e.currentTarget.src)}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://placehold.co/600x400/e2e8f0/64748b?text=Image+Not+Found`;
+                        (e.target as HTMLImageElement).onerror = null;
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                      <ZoomIn className="text-white drop-shadow-md" size={32} />
+                    </div>
+                  </>
                 ) : (
                   <div className="flex flex-col items-center text-gray-400">
                     <ImageOff size={24} className="mb-2" />
@@ -335,25 +419,43 @@ export default function Kendaraan() {
                   </div>
                 )}
               </div>
-              {/* Note to user if it's an AppSheet relative path */}
-              {(selectedItem as any).foto && (selectedItem as any).foto.includes("Kendaraan_Images") && (
-                <span className="text-[10px] text-amber-600 dark:text-amber-400 text-center leading-tight mt-1 px-2">
-                  Format path AppSheet terdeteksi. Gunakan URL foto publik yang lengkap.
-                </span>
-              )}
             </div>
             
             <div className="flex flex-col items-center gap-2">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Lokasi Terakhir</span>
-              <div className="w-full aspect-video bg-blue-50 dark:bg-blue-900/20 rounded-xl overflow-hidden flex items-center justify-center p-4 text-center">
+              <div className="w-full aspect-video bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden relative group">
                 {selectedItem.latitude && selectedItem.longitude ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <MapPin className="text-blue-500" size={24} />
-                    <span className="text-xs text-gray-500 break-all">{selectedItem.latitude}, {selectedItem.longitude}</span>
-                    <a href={`https://maps.google.com/?q=${selectedItem.latitude},${selectedItem.longitude}`} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 text-xs font-semibold hover:underline mt-1">Buka di Maps</a>
-                  </div>
+                  (() => {
+                    const lat = String(selectedItem.latitude).replace(',', '.').trim();
+                    const lng = String(selectedItem.longitude).replace(',', '.').trim();
+                    return (
+                      <>
+                        <iframe 
+                          width="100%" 
+                          height="100%" 
+                          frameBorder="0" 
+                          style={{ border: 0 }}
+                          src={`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`} 
+                          allowFullScreen 
+                          title="Lokasi"
+                          loading="lazy"
+                        />
+                        <a 
+                          href={`https://maps.google.com/?q=${lat},${lng}`} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="absolute bottom-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-gray-800/90 text-blue-600 dark:text-blue-400 text-xs font-semibold px-3 py-1.5 rounded-full shadow-md backdrop-blur-sm"
+                        >
+                          Buka di Maps
+                        </a>
+                      </>
+                    );
+                  })()
                 ) : (
-                  <span className="text-gray-400 text-xs">Lokasi tidak tersedia</span>
+                  <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center text-gray-400">
+                    <MapPin size={24} className="mb-2 opacity-50" />
+                    <span className="text-xs">Lokasi tidak tersedia</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -446,6 +548,31 @@ export default function Kendaraan() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Image Zoom Modal */}
+      {zoomedImage && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setZoomedImage(null)}>
+          <button 
+            className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/80 text-white rounded-full backdrop-blur-md transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoomedImage(null);
+            }}
+          >
+            <X size={24} />
+          </button>
+          <img 
+            src={zoomedImage} 
+            alt="Zoomed foto" 
+            className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = `https://placehold.co/800x600/e2e8f0/64748b?text=Image+Not+Found`;
+              (e.target as HTMLImageElement).onerror = null;
+            }}
+          />
         </div>
       )}
     </div>

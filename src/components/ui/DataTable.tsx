@@ -16,8 +16,12 @@ interface DataTableProps<T> {
   searchQuery?: string;
   itemsPerPageOptions?: number[];
   defaultItemsPerPage?: number;
-  renderMobileCard?: (row: T) => React.ReactNode;
+  renderMobileCard?: (row: T, isSelected?: boolean, onToggle?: () => void) => React.ReactNode;
   onRowClick?: (row: T) => void;
+  selectable?: boolean;
+  selectedItems?: T[];
+  onSelectionChange?: (items: T[]) => void;
+  getId?: (row: T) => string;
 }
 
 export function DataTable<T>({
@@ -28,6 +32,10 @@ export function DataTable<T>({
   defaultItemsPerPage = 10,
   renderMobileCard,
   onRowClick,
+  selectable = false,
+  selectedItems = [],
+  onSelectionChange,
+  getId = (row: any) => row.id || row.asset_id || JSON.stringify(row),
 }: DataTableProps<T>) {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -90,6 +98,37 @@ export function DataTable<T>({
     return processedData.slice(start, start + itemsPerPage);
   }, [processedData, currentPage, itemsPerPage]);
 
+  const toggleRow = (row: T) => {
+    if (!onSelectionChange) return;
+    const isSelected = selectedItems.some(i => getId(i) === getId(row));
+    if (isSelected) {
+      onSelectionChange(selectedItems.filter(i => getId(i) !== getId(row)));
+    } else {
+      onSelectionChange([...selectedItems, row]);
+    }
+  };
+
+  const toggleAll = () => {
+    if (!onSelectionChange) return;
+    if (selectedItems.length === currentData.length && currentData.length > 0) {
+      // If all current page items are selected, unselect them all
+      const currentIds = new Set(currentData.map(getId));
+      onSelectionChange(selectedItems.filter(i => !currentIds.has(getId(i))));
+    } else {
+      // Select all current page
+      const newSelections = [...selectedItems];
+      const selectedIds = new Set(newSelections.map(getId));
+      currentData.forEach(row => {
+        if (!selectedIds.has(getId(row))) {
+          newSelections.push(row);
+        }
+      });
+      onSelectionChange(newSelections);
+    }
+  };
+
+  const isAllCurrentSelected = currentData.length > 0 && currentData.every(row => selectedItems.some(i => getId(i) === getId(row)));
+
   return (
     <div className="space-y-4">
       {/* Mobile view if renderMobileCard is provided */}
@@ -99,13 +138,20 @@ export function DataTable<T>({
             currentData.map((row, idx) => (
               <div 
                 key={idx} 
-                onClick={() => onRowClick && onRowClick(row)}
+                onClick={() => {
+                  if (onRowClick) {
+                    onRowClick(row);
+                  } else if (selectable && onSelectionChange) {
+                    toggleRow(row);
+                  }
+                }}
                 className={cn(
                   "neuglass rounded-2xl p-4",
-                  onRowClick && "cursor-pointer hover:neuglass-pressed hover:bg-opacity-80 transition-colors"
+                  (onRowClick || selectable) && "cursor-pointer hover:neuglass-pressed hover:bg-opacity-80 transition-colors",
+                  selectable && selectedItems.some(i => getId(i) === getId(row)) && "ring-2 ring-blue-500 bg-blue-50/10"
                 )}
               >
-                {renderMobileCard(row)}
+                {renderMobileCard(row, selectable ? selectedItems.some(i => getId(i) === getId(row)) : undefined, selectable ? () => toggleRow(row) : undefined)}
               </div>
             ))
           ) : (
@@ -119,6 +165,16 @@ export function DataTable<T>({
         <Table>
           <TableHeader>
             <TableRow>
+              {selectable && (
+                <TableHead className="w-12 text-center">
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800"
+                    checked={isAllCurrentSelected}
+                    onChange={toggleAll}
+                  />
+                </TableHead>
+              )}
               {columns.map((col, idx) => (
                 <TableHead 
                   key={idx} 
@@ -144,9 +200,28 @@ export function DataTable<T>({
               currentData.map((row, rowIndex) => (
                 <TableRow 
                   key={rowIndex}
-                  onClick={() => onRowClick && onRowClick(row)}
-                  className={cn(onRowClick && "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50")}
+                  onClick={() => {
+                    if (onRowClick) {
+                      onRowClick(row);
+                    } else if (selectable && onSelectionChange) {
+                      toggleRow(row);
+                    }
+                  }}
+                  className={cn((onRowClick || selectable) && "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50", selectable && selectedItems.some(i => getId(i) === getId(row)) && "bg-blue-50/50 dark:bg-blue-900/20")}
                 >
+                  {selectable && (
+                    <TableCell 
+                      className="w-12 text-center cursor-pointer" 
+                      onClick={(e) => { e.stopPropagation(); toggleRow(row); }}
+                    >
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 pointer-events-none"
+                        checked={selectedItems.some(i => getId(i) === getId(row))}
+                        readOnly
+                      />
+                    </TableCell>
+                  )}
                   {columns.map((col, colIndex) => (
                     <TableCell key={colIndex}>
                       {col.cell 
@@ -160,7 +235,7 @@ export function DataTable<T>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <TableCell colSpan={selectable ? columns.length + 1 : columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400">
                   Tidak ada data ditemukan
                 </TableCell>
               </TableRow>

@@ -18,6 +18,7 @@ export interface Vehicle extends Asset {
   no_polisi: string;
   tipe?: string;
   jenis_kendaraan?: string;
+  km_kendaraan?: string | number;
 }
 
 export interface Equipment extends Asset {
@@ -84,7 +85,27 @@ export interface Loan {
   catatan?: string;
 }
 
+export interface Pegawai {
+  nip: string;
+  nama: string;
+  jabatan: string;
+  unit_kerja: string;
+  golongan: string;
+  status: string;
+  tgl_lahir: string;
+  tgl_kgb: string;
+  tgl_pangkat: string;
+  foto?: string;
+  assets?: any[];
+}
+
 export interface DashboardMetrics {
+  totalPegawai: number;
+  pegawaiAktif: number;
+  pegawaiPensiun: number;
+  peringatanKGB: number;
+  peringatanPangkat: number;
+  peringatanPensiun: number;
   totalAset: number;
   totalKendaraan: number;
   totalAlatMesin: number;

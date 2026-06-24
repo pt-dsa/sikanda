@@ -1,11 +1,15 @@
 import React, { useState } from "react";
-import { Download, Printer } from "lucide-react";
+import { Download, Printer, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { spreadsheetService } from "@/services/spreadsheetService";
 import Papa from "papaparse";
+import { useToast } from "@/components/ui/Toast";
 
 export default function Laporan() {
   const [isExporting, setIsExporting] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const toast = useToast();
 
   const handleExport = async (type: string, name: string) => {
     setIsExporting(true);
@@ -24,14 +28,39 @@ export default function Laporan() {
         data = await fetchers[type]();
       }
 
+      // Filter by date range if provided
+      if (startDate || endDate) {
+        data = data.filter((item) => {
+          // Identify the relevant date field for filtering based on the module
+          let itemDateStr = item.tanggal || item.tanggal_pengajuan || item.tanggal_pinjam || "";
+          
+          if (!itemDateStr) return true; // If no date field, include it by default or reject it? Including it seems safer for master data. Let's include everything that has no date.
+          
+          const itemDate = new Date(itemDateStr);
+          if (isNaN(itemDate.getTime())) return true; // Invalid date format
+          
+          const start = startDate ? new Date(startDate) : new Date("1900-01-01");
+          start.setHours(0, 0, 0, 0);
+          
+          const end = endDate ? new Date(endDate) : new Date("2100-01-01");
+          end.setHours(23, 59, 59, 999);
+          
+          return itemDate >= start && itemDate <= end;
+        });
+      }
+
       if (data.length === 0) {
-        alert(`Tidak ada data untuk diexport pada modul ${name}`);
+        toast.warning("Ekspor Kosong", `Tidak ada data dalam rentang waktu tersebut pada laporan ${name}`);
         return;
       }
 
       // Format current date YYYYMMDD
       const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
-      const filename = `SIMOSDA_${name}_${date}.csv`;
+      let filename = `SIMOSDA_${name}_${date}`;
+      if (startDate && endDate) {
+         filename += `_${startDate.replace(/-/g, '')}_to_${endDate.replace(/-/g, '')}`;
+      }
+      filename += `.csv`;
 
       // Export Client-side using PapaParse
       const csvData = Papa.unparse(data);
@@ -45,9 +74,11 @@ export default function Laporan() {
       link.click();
       document.body.removeChild(link);
 
+      toast.success("Ekspor Berhasil", `Laporan ${name} berhasil diunduh.`);
+
     } catch (err) {
         console.error("Export failed", err);
-        alert("Gagal melakukan export CSV");
+        toast.error("Ekspor Gagal", "Gagal melakukan ekspor CSV. Terjadi kesalahan internal.");
     } finally {
         setIsExporting(false);
     }
@@ -82,9 +113,54 @@ export default function Laporan() {
         </button>
       </div>
 
+      <Card className="print:hidden border-0 shadow-sm mb-6">
+        <CardHeader className="pb-3 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <Calendar size={18} className="text-blue-500" />
+            <CardTitle className="text-lg">Filter Waktu Kelola Data</CardTitle>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1.5">Pilih rentang tanggal untuk memfilter laporan (berlaku untuk Pemeliharaan dan Peminjaman).</p>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex-1 w-full flex flex-col space-y-1.5">
+              <label htmlFor="startDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">Tanggal Mulai</label>
+              <input
+                type="date"
+                id="startDate"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              />
+            </div>
+            <div className="hidden sm:block mt-6 text-gray-400">-</div>
+            <div className="flex-1 w-full flex flex-col space-y-1.5">
+              <label htmlFor="endDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">Tanggal Selesai</label>
+              <input
+                type="date"
+                id="endDate"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              />
+            </div>
+          </div>
+          {(startDate || endDate) && (
+             <div className="mt-4 flex justify-end">
+               <button
+                 onClick={() => { setStartDate(''); setEndDate(''); }}
+                 className="text-sm text-gray-500 hover:text-red-500 transition-colors"
+               >
+                 Reset Filter
+               </button>
+             </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {reports.map((report) => (
-          <Card key={report.id} className="print:break-inside-avoid">
+          <Card key={report.id} className="print:break-inside-avoid shadow-sm border-0">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-lg">{report.name}</CardTitle>
             </CardHeader>
