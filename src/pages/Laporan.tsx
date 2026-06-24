@@ -56,7 +56,7 @@ export default function Laporan() {
 
       // Format current date YYYYMMDD
       const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
-      let filename = `SIMOSDA_${name}_${date}`;
+      let filename = `SIKANDA_${name}_${date}`;
       if (startDate && endDate) {
          filename += `_${startDate.replace(/-/g, '')}_to_${endDate.replace(/-/g, '')}`;
       }

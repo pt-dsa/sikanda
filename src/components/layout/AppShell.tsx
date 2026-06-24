@@ -14,19 +14,19 @@ export const AuthContext = createContext({ user: null as any, login: () => {}, l
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem("simosda_user");
+    const saved = localStorage.getItem("sikanda_user");
     return saved ? JSON.parse(saved) : null;
   });
 
   const login = () => {
     const defaultUser = { name: "Administrator", role: "admin" };
     setUser(defaultUser);
-    localStorage.setItem("simosda_user", JSON.stringify(defaultUser));
+    localStorage.setItem("sikanda_user", JSON.stringify(defaultUser));
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("simosda_user");
+    localStorage.removeItem("sikanda_user");
   };
 
   return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
@@ -101,7 +101,7 @@ function Sidebar({ mobileOpen, desktopOpen, setMobileOpen }: { mobileOpen: boole
     )}>
       <div className={cn("flex flex-col items-center justify-center border-b border-gray-100/50 dark:border-gray-800/50 overflow-hidden py-4", desktopOpen ? "px-4" : "md:px-2 md:justify-center px-4")}>
         <div className="flex flex-col items-center gap-2 text-blue-700 dark:text-blue-500 font-bold tracking-tight whitespace-nowrap neuglass rounded-2xl p-3 w-full">
-          <img src={`${import.meta.env.BASE_URL}logo_kota_tangerang_selatan.png`} alt="SIMOSDA Logo" className="w-10 h-10 object-contain" />
+          <img src={`${import.meta.env.BASE_URL}logo_kota_tangerang_selatan.png`} alt="SIKANDA Logo" className="w-10 h-10 object-contain" />
           <span className={cn("transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] origin-top text-lg w-[88.625px] text-center leading-[28px]", desktopOpen ? "opacity-100 scale-100 h-auto mt-1" : "md:opacity-0 md:scale-0 md:h-0 opacity-100 scale-100 h-auto mt-1")}>SIKANDA</span>
         </div>
       </div>
