@@ -162,7 +162,7 @@ export function DataTable<T>({
 
       {/* Desktop view (always visible if mobile view is not provided, otherwise hidden on mobile) */}
       <div className={cn(renderMobileCard ? "hidden md:block" : "block")}>
-        <Table>
+        <Table containerClassName="md:max-h-[calc(100vh-22rem)]">
           <TableHeader>
             <TableRow>
               {selectable && (

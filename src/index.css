@@ -36,6 +36,19 @@
       -8px -8px 16px rgba(255, 255, 255, 0.05);
   }
 
+  /* Bayangan 3D (neumorphic) yang bisa ditumpangkan ke kartu BERWARNA tanpa
+     mengubah background-nya. Dipakai oleh kartu ringkasan di Pegawai & Buku Penjagaan. */
+  .neu-raised {
+    box-shadow:
+      8px 8px 16px rgba(163, 177, 198, 0.4),
+      -8px -8px 16px rgba(255, 255, 255, 0.8);
+  }
+  .dark .neu-raised {
+    box-shadow:
+      8px 8px 16px rgba(0, 0, 0, 0.6),
+      -8px -8px 16px rgba(255, 255, 255, 0.05);
+  }
+
   .neuglass-pressed, .neu-pressed {
     @apply bg-[#e2e8f0]/20 dark:bg-[#1e293b]/20 backdrop-blur-md border border-white/40 dark:border-white/5;
     box-shadow: 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { spreadsheetService } from "@/services/spreadsheetService";
@@ -297,21 +298,38 @@ export default function Dashboard() {
               Metrik Kepegawaian Utama
             </h2>
             <motion.div variants={itemVars} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <KpiCard title="Total Pegawai" value={metrics.totalPegawai} icon={Users} colorClass="bg-blue-100/60 text-blue-600" subtitle="Seluruh pegawai aktif" />
-              <KpiCard title="ASN" value={metrics.pegawaiASN} icon={UserCheck} colorClass="bg-green-100/60 text-green-600" subtitle="Aparatur Sipil Negara" />
-              <KpiCard title="PPPK" value={metrics.pegawaiPPPK} icon={Users} colorClass="bg-purple-100/60 text-purple-600" subtitle="Pegawai Pemerintah Perjanjian Kerja" />
+              <Link to="/pegawai" className="block transition-transform hover:-translate-y-0.5">
+                <KpiCard title="Total Pegawai" value={metrics.totalPegawai} icon={Users} colorClass="bg-blue-100/60 text-blue-600" subtitle="Seluruh pegawai aktif" />
+              </Link>
+              <Link to="/pegawai?status=ASN" className="block transition-transform hover:-translate-y-0.5">
+                <KpiCard title="ASN" value={metrics.pegawaiASN} icon={UserCheck} colorClass="bg-green-100/60 text-green-600" subtitle="Aparatur Sipil Negara" />
+              </Link>
+              <Link to="/pegawai?status=PPPK" className="block transition-transform hover:-translate-y-0.5">
+                <KpiCard title="PPPK" value={metrics.pegawaiPPPK} icon={Users} colorClass="bg-purple-100/60 text-purple-600" subtitle="Pegawai Pemerintah Perjanjian Kerja" />
+              </Link>
             </motion.div>
           </section>
 
-          {/* ── SECTION 2: Buku Penjagaan Cerdas ── */}
+          {/* ── SECTION 2: Buku Penjagaan ── */}
           <section>
-            <h2 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-3 pb-2 border-b border-gray-200 dark:border-gray-800 uppercase tracking-widest">
-              Buku Penjagaan Cerdas — Peringatan 6 Bulan ke Depan
-            </h2>
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200 dark:border-gray-800">
+              <h2 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                Buku Penjagaan — Peringatan 6 Bulan ke Depan
+              </h2>
+              <Link to="/buku-penjagaan" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 shrink-0">
+                Lihat Buku Penjagaan <ExternalLink size={12} />
+              </Link>
+            </div>
             <motion.div variants={itemVars} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <AlertCard title="KGB (Kenaikan Gaji Berkala)" count={metrics.peringatanKGB} subtitle="Jadwal KGB terdekat (siklus 2 tahun)" colorScheme="yellow" />
-              <AlertCard title="Kenaikan Pangkat" count={metrics.peringatanPangkat} subtitle="Usulan Kenaikan Pangkat terdekat" colorScheme="blue" />
-              <AlertCard title="Mendekati Pensiun (BUP)" count={metrics.peringatanPensiun} subtitle="Siapkan penarikan tanggungan aset" colorScheme="red" />
+              <Link to="/buku-penjagaan?kategori=KGB&rentang=le6">
+                <AlertCard title="KGB (Kenaikan Gaji Berkala)" count={metrics.peringatanKGB} subtitle="Jadwal KGB terdekat (siklus 2 tahun)" colorScheme="yellow" />
+              </Link>
+              <Link to="/buku-penjagaan?kategori=PANGKAT&rentang=le6">
+                <AlertCard title="Kenaikan Pangkat" count={metrics.peringatanPangkat} subtitle="Usulan Kenaikan Pangkat terdekat" colorScheme="blue" />
+              </Link>
+              <Link to="/buku-penjagaan?kategori=BUP&rentang=le6">
+                <AlertCard title="Mendekati Pensiun (BUP)" count={metrics.peringatanPensiun} subtitle="Siapkan penarikan tanggungan aset" colorScheme="red" />
+              </Link>
             </motion.div>
           </section>
 

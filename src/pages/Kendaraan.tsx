@@ -8,6 +8,8 @@ import { QrCode, MapPin, Plus, Edit2, Trash2, X, ImageOff, AlertCircle, ZoomIn, 
 import { QRCodeSVG } from "qrcode.react";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { DetailModal } from "@/components/ui/DetailModal";
+import { SummaryCards } from "@/components/ui/SummaryCards";
+import { summarizeBy, toneForKondisi, canonKey } from "@/lib/summary";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { useToast } from "@/components/ui/Toast";
 import { useLocation } from "react-router-dom";
@@ -103,10 +105,17 @@ export default function Kendaraan() {
   const filteredData = useMemo(() => {
     return data.filter(item => {
       const matchJenis = filterJenis ? String(item.jenis_kendaraan || "").toLowerCase() === String(filterJenis || "").toLowerCase() : true;
-      const matchKondisi = filterKondisi ? String(item.kondisi || "").toLowerCase() === String(filterKondisi || "").toLowerCase() : true;
+      // canonKey (trim+UPPERCASE) di kedua sisi → angka kartu == jumlah baris terfilter.
+      const matchKondisi = filterKondisi ? canonKey(item.kondisi) === canonKey(filterKondisi) : true;
       return matchJenis && matchKondisi;
     });
   }, [data, filterJenis, filterKondisi]);
+
+  // Ringkasan kondisi dari data NYATA (dikelompokkan kanonik). Klik kartu = filter.
+  const kondisiSummary = useMemo(
+    () => summarizeBy(data, (d: Vehicle) => d.kondisi).map((b) => ({ ...b, tone: toneForKondisi(b.key) })),
+    [data]
+  );
 
   const isMaintenanceDue = (kmText: string | number | undefined) => {
     if (!kmText) return false;
@@ -290,6 +299,15 @@ export default function Kendaraan() {
           </button>
         </div>
       </div>
+
+      {/* Kartu ringkasan kondisi (klikable → filter). Total = semua. */}
+      <SummaryCards
+        items={kondisiSummary}
+        totalLabel="Total Kendaraan"
+        totalCount={data.length}
+        activeKey={canonKey(filterKondisi)}
+        onSelect={(key) => setFilterKondisi(key)}
+      />
 
       <Card>
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">

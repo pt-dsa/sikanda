@@ -6,6 +6,8 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import { Card, CardContent } from "@/components/ui/Card";
 import { DetailModal } from '@/components/ui/DetailModal';
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
+import { SummaryCards } from "@/components/ui/SummaryCards";
+import { summarizeBy, toneForStatus, canonKey } from "@/lib/summary";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { LoadingState } from "@/components/ui/LoadingState";
 
@@ -30,10 +32,15 @@ export default function PemeliharaanKendaraan() {
 
   const filteredData = useMemo(() => {
     return data.filter(item => {
-      const matchStatus = filterStatus ? String(item.status || "").toLowerCase() === String(filterStatus || "").toLowerCase() : true;
+      const matchStatus = filterStatus ? canonKey(item.status) === canonKey(filterStatus) : true;
       return matchStatus;
     });
   }, [data, filterStatus]);
+
+  const statusSummary = useMemo(
+    () => summarizeBy(data, (d: Maintenance) => d.status).map((b) => ({ ...b, tone: toneForStatus(b.key) })),
+    [data]
+  );
 
   const uniqueStatus = Array.from(new Set(data.map(d => d.status).filter(Boolean)));
 
@@ -126,6 +133,16 @@ export default function PemeliharaanKendaraan() {
           Total: {filteredData.length} Riwayat
         </div>
       </div>
+
+      {statusSummary.length > 0 && (
+        <SummaryCards
+          items={statusSummary}
+          totalLabel="Total Riwayat"
+          totalCount={data.length}
+          activeKey={canonKey(filterStatus)}
+          onSelect={(key) => setFilterStatus(key)}
+        />
+      )}
 
       <Card>
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1,33 +1,46 @@
-import React from "react";
+import React, { Suspense, lazy, useContext } from "react";
 import { HashRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
-import { AuthProvider, AppShell } from "@/components/layout/AppShell";
+import { AuthProvider, AppShell, AuthContext } from "@/components/layout/AppShell";
+import { canViewMenu, type MenuKey } from "@/lib/rbac";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ToastProvider } from "@/components/ui/Toast";
+import { LoadingState } from "@/components/ui/LoadingState";
+
+// Login dimuat eager (paint pertama untuk pengguna belum login — tanpa kedip Suspense).
 import Login from "@/pages/Login";
-import Dashboard from "@/pages/Dashboard";
-import Kendaraan from "@/pages/Kendaraan";
-import AlatMesin from "@/pages/AlatMesin";
-import Inventaris from "@/pages/Inventaris";
-import PaguAnggaran from "@/pages/PaguAnggaran";
-import PemeliharaanKendaraan from "@/pages/PemeliharaanKendaraan";
-import Peminjaman from "@/pages/Peminjaman";
-import Laporan from "@/pages/Laporan";
 
-import PetaSebaran from "@/pages/PetaSebaran";
+// Halaman terproteksi dimuat lazy (code-splitting). Pustaka berat ikut terpisah:
+// recharts → chunk Dashboard, leaflet/react-leaflet → chunk PetaSebaran, qrcode.react → chunk masing-masing.
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const PegawaiPage = lazy(() => import("@/pages/Pegawai"));
+const BukuPenjagaan = lazy(() => import("@/pages/BukuPenjagaan"));
+const Kendaraan = lazy(() => import("@/pages/Kendaraan"));
+const AlatMesin = lazy(() => import("@/pages/AlatMesin"));
+const Inventaris = lazy(() => import("@/pages/Inventaris"));
+const PaguAnggaran = lazy(() => import("@/pages/PaguAnggaran"));
+const PemeliharaanKendaraan = lazy(() => import("@/pages/PemeliharaanKendaraan"));
+const Peminjaman = lazy(() => import("@/pages/Peminjaman"));
+const PetaSebaran = lazy(() => import("@/pages/PetaSebaran"));
+const Laporan = lazy(() => import("@/pages/Laporan"));
+const KelolaAkun = lazy(() => import("@/pages/KelolaAkun"));
 
-import PegawaiPage from "@/pages/Pegawai";
-
-const Placeholder = ({ title }: { title: string }) => (
-  <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400 space-y-4">
-    <div className="text-2xl font-semibold text-gray-500">{title}</div>
-    <p className="text-sm">Modul ini siap dikembangkan dengan arsitektur yang sama.</p>
-  </div>
-);
+// Penjaga route per-peran: menolak akses via URL langsung bila peran tak berhak.
+// (Sidebar sudah menyembunyikan menunya; ini lapis kedua untuk URL manual.)
+function MenuGuard({ menu, children }: { menu: MenuKey; children: React.ReactNode }) {
+  const { user } = useContext(AuthContext);
+  if (!user) return <Navigate to="/login" replace />;
+  if (!canViewMenu(user.role, menu)) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
 
 function ProtectedLayout() {
   return (
     <AppShell>
-      <Outlet />
+      {/* Fallback Suspense WAJIB pakai LoadingState (anti layar putih).
+          Berada DI DALAM AppShell → sidebar & topbar tetap tampil saat halaman dimuat. */}
+      <Suspense fallback={<LoadingState />}>
+        <Outlet />
+      </Suspense>
     </AppShell>
   );
 }
@@ -41,10 +54,11 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              
+
               <Route element={<ProtectedLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/pegawai" element={<PegawaiPage />} />
+                <Route path="/buku-penjagaan" element={<BukuPenjagaan />} />
                 <Route path="/kendaraan" element={<Kendaraan />} />
                 <Route path="/alat-mesin" element={<AlatMesin />} />
                 <Route path="/inventaris" element={<Inventaris />} />
@@ -53,6 +67,14 @@ export default function App() {
                 <Route path="/peminjaman" element={<Peminjaman />} />
                 <Route path="/peta" element={<PetaSebaran />} />
                 <Route path="/laporan" element={<Laporan />} />
+                <Route
+                  path="/kelola-akun"
+                  element={
+                    <MenuGuard menu="kelola-akun">
+                      <KelolaAkun />
+                    </MenuGuard>
+                  }
+                />
               </Route>
             </Routes>
           </HashRouter>
@@ -61,4 +83,3 @@ export default function App() {
     </ThemeProvider>
   );
 }
-

@@ -6,6 +6,8 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import { Card, CardContent } from "@/components/ui/Card";
 import { DetailModal } from '@/components/ui/DetailModal';
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
+import { SummaryCards } from "@/components/ui/SummaryCards";
+import { paguStatusOf, paguStatusLabel, toneForPaguStatus, type PaguStatus } from "@/lib/summary";
 import { formatCurrency } from "@/lib/utils";
 import { LoadingState } from "@/components/ui/LoadingState";
 
@@ -15,6 +17,7 @@ export default function PaguAnggaran() {
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [search, setSearch] = useState("");
   const [filterTahun, setFilterTahun] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"" | PaguStatus>("");
 
   useEffect(() => {
     async function fetch() {
@@ -31,11 +34,23 @@ export default function PaguAnggaran() {
   const filteredData = useMemo(() => {
     return data.filter(item => {
       const matchTahun = filterTahun ? item.tahun_anggaran?.toString() === filterTahun : true;
-      return matchTahun;
+      // Status serapan memakai ambang IDENTIK dengan kolom Realisasi(%) di tabel.
+      const matchStatus = filterStatus ? paguStatusOf(item.persentase_realisasi || 0) === filterStatus : true;
+      return matchTahun && matchStatus;
     });
-  }, [data, filterTahun]);
+  }, [data, filterTahun, filterStatus]);
 
   const uniqueTahun = Array.from(new Set(data.map(d => d.tahun_anggaran).filter(Boolean)));
+
+  // Ringkasan status serapan dari data NYATA. Total = semua baris pagu.
+  const statusSummary = useMemo(() => {
+    const order: PaguStatus[] = ["aman", "monitoring", "kritis"];
+    const counts: Record<PaguStatus, number> = { aman: 0, monitoring: 0, kritis: 0 };
+    for (const b of data) counts[paguStatusOf(b.persentase_realisasi || 0)]++;
+    return order
+      .filter((s) => counts[s] > 0)
+      .map((s) => ({ key: s, label: paguStatusLabel(s), count: counts[s], tone: toneForPaguStatus(s) }));
+  }, [data]);
 
   const columns: ColumnDef<Budget>[] = [
     {
@@ -144,6 +159,16 @@ export default function PaguAnggaran() {
           <p className="text-sm text-gray-500 dark:text-gray-400">Monitoring anggaran pemeliharaan dan suku cadang kendaraan</p>
         </div>
       </div>
+
+      {statusSummary.length > 0 && (
+        <SummaryCards
+          items={statusSummary as any}
+          totalLabel="Total Pagu"
+          totalCount={data.length}
+          activeKey={filterStatus}
+          onSelect={(key) => setFilterStatus(key as any)}
+        />
+      )}
 
       <Card>
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">

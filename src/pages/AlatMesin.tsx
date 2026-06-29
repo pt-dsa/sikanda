@@ -8,6 +8,8 @@ import { QrCode, MapPin, ImageOff, ZoomIn, X, Plus, Edit2, Trash2, CheckSquare }
 import { QRCodeSVG } from "qrcode.react";
 import { DetailModal } from '@/components/ui/DetailModal';
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
+import { SummaryCards } from "@/components/ui/SummaryCards";
+import { summarizeBy, toneForKondisi, canonKey } from "@/lib/summary";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { useLocation } from "react-router-dom";
 import { useToast } from "@/components/ui/Toast";
@@ -112,10 +114,15 @@ export default function AlatMesin() {
         item.penanggung_jawab?.toLowerCase().includes(search.toLowerCase())
       ) : true;
       const matchJenis = filterJenis ? String(item.jenis || "").toLowerCase() === String(filterJenis || "").toLowerCase() : true;
-      const matchKondisi = filterKondisi ? String(item.kondisi || "").toLowerCase() === String(filterKondisi || "").toLowerCase() : true;
+      const matchKondisi = filterKondisi ? canonKey(item.kondisi) === canonKey(filterKondisi) : true;
       return matchSearch && matchJenis && matchKondisi;
     });
   }, [data, search, filterJenis, filterKondisi]);
+
+  const kondisiSummary = useMemo(
+    () => summarizeBy(data, (d: Equipment) => d.kondisi).map((b) => ({ ...b, tone: toneForKondisi(b.key) })),
+    [data]
+  );
 
   const uniqueJenis = Array.from(new Set(data.map(d => d.jenis).filter(Boolean)));
   const uniqueKondisi = Array.from(new Set(data.map(d => d.kondisi).filter(Boolean)));
@@ -283,6 +290,14 @@ export default function AlatMesin() {
           </button>
         </div>
       </div>
+
+      <SummaryCards
+        items={kondisiSummary}
+        totalLabel="Total Aset"
+        totalCount={data.length}
+        activeKey={canonKey(filterKondisi)}
+        onSelect={(key) => setFilterKondisi(key)}
+      />
 
       <Card>
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">

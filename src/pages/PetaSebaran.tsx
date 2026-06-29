@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { Card, CardContent } from "@/components/ui/Card";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { Car, Bike, Wrench, Package, MapPin, Eye, Map as MapIcon, Layers, Radio, ZoomIn, X, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { renderToString } from "react-dom/server";
 import { StatusBadge } from "@/components/ui/Badge";
@@ -198,6 +199,15 @@ export default function PetaSebaran() {
     });
   }, [locations, filterType, filterCondition, searchQuery]);
 
+  // Jumlah titik per tipe atas SELURUH lokasi (untuk chip klikable → filterType).
+  const typeSummary = useMemo(() => {
+    const order = ["Kendaraan", "Alat & Mesin", "Inventaris"];
+    const counts: Record<string, number> = {};
+    locations.forEach((l) => { counts[l.type] = (counts[l.type] || 0) + 1; });
+    const keys = Array.from(new Set([...order.filter((k) => counts[k]), ...Object.keys(counts)]));
+    return keys.map((k) => ({ type: k, count: counts[k] || 0 }));
+  }, [locations]);
+
   if (loading) {
     return <LoadingState />;
   }
@@ -260,10 +270,39 @@ export default function PetaSebaran() {
     <div className="-m-4 md:-m-6 lg:-m-8 h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] flex flex-col relative bg-gray-50 border-t border-gray-100">
       <div className="absolute top-4 left-4 right-4 z-[400] flex flex-col sm:flex-row gap-4 justify-between items-start pointer-events-none">
         
-        {/* Title & Info Card */}
-        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 pointer-events-auto transition-all w-full sm:w-auto">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">Peta Sebaran Aset</h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Visualisasi geografis real-time</p>
+        {/* Title & Info Card + chip tipe klikable */}
+        <div className="flex flex-col gap-2 w-full sm:w-auto pointer-events-auto">
+          <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 transition-all w-full sm:w-auto">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">Peta Sebaran Aset</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Visualisasi geografis real-time</p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setFilterType("Semua Tipe")}
+              aria-pressed={filterType === "Semua Tipe"}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-sm border transition-colors ${
+                filterType === "Semua Tipe"
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white/95 dark:bg-gray-900/95 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700"
+              }`}
+            >
+              Semua · {locations.length}
+            </button>
+            {typeSummary.map((t) => (
+              <button
+                key={t.type}
+                onClick={() => setFilterType(t.type)}
+                aria-pressed={filterType === t.type}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-sm border transition-colors ${
+                  filterType === t.type
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white/95 dark:bg-gray-900/95 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700"
+                }`}
+              >
+                {t.type} · {t.count}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Filters & Controls */}
@@ -475,7 +514,7 @@ export default function PetaSebaran() {
           <button onClick={() => setZoomedImage(null)} className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors">
             <X size={24} />
           </button>
-          <img 
+          <SafeImage 
             src={zoomedImage} 
             alt="Zoomed Asset" 
             className="w-full h-auto max-h-[90vh] object-contain rounded-xl shadow-2xl" 

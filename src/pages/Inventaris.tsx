@@ -8,7 +8,10 @@ import { QrCode, MapPin, ImageOff, ZoomIn, X, CheckSquare, Trash2 } from "lucide
 import { QRCodeSVG } from "qrcode.react";
 import { DetailModal } from '@/components/ui/DetailModal';
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
+import { SummaryCards } from "@/components/ui/SummaryCards";
+import { summarizeBy, toneForKondisi, canonKey } from "@/lib/summary";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { useLocation } from "react-router-dom";
 import { useToast } from "@/components/ui/Toast";
 
@@ -54,10 +57,15 @@ export default function Inventaris() {
         item.penanggung_jawab?.toLowerCase().includes(search.toLowerCase())
       ) : true;
       const matchRuangan = filterRuangan ? String(item.lokasi_ruangan || "").toLowerCase() === String(filterRuangan || "").toLowerCase() : true;
-      const matchKondisi = filterKondisi ? String(item.kondisi || "").toLowerCase() === String(filterKondisi || "").toLowerCase() : true;
+      const matchKondisi = filterKondisi ? canonKey(item.kondisi) === canonKey(filterKondisi) : true;
       return matchSearch && matchRuangan && matchKondisi;
     });
   }, [data, search, filterRuangan, filterKondisi]);
+
+  const kondisiSummary = useMemo(
+    () => summarizeBy(data, (d: Inventory) => d.kondisi).map((b) => ({ ...b, tone: toneForKondisi(b.key) })),
+    [data]
+  );
 
   const uniqueRuangan = Array.from(new Set(data.map(d => d.lokasi_ruangan).filter(Boolean)));
   const uniqueKondisi = Array.from(new Set(data.map(d => d.kondisi).filter(Boolean)));
@@ -199,6 +207,14 @@ export default function Inventaris() {
           Total: {filteredData.length} Barang
         </div>
       </div>
+
+      <SummaryCards
+        items={kondisiSummary}
+        totalLabel="Total Barang"
+        totalCount={data.length}
+        activeKey={canonKey(filterKondisi)}
+        onSelect={(key) => setFilterKondisi(key)}
+      />
 
       <Card>
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -405,7 +421,7 @@ export default function Inventaris() {
           >
             <X size={24} />
           </button>
-          <img 
+          <SafeImage 
             src={zoomedImage} 
             alt="Zoomed" 
             className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"

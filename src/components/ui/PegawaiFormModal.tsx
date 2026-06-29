@@ -5,8 +5,14 @@ import { Pegawai } from "@/types";
 import { apiService, fileToBase64 } from "@/services/apiService";
 import { spreadsheetService } from "@/services/spreadsheetService";
 import { toInputDate, parseAnyDate } from "@/lib/utils";
+import { canEditField, type AppUser } from "@/lib/rbac";
 
 const DATE_FIELDS: (keyof Pegawai)[] = ["tgl_lahir", "tgl_mulai_golongan", "tgl_mulai_jabatan"];
+
+// Kelas styling dipusatkan di scope MODUL (konstanta — tak perlu dioper via props).
+const inputCls =
+  "w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none read-only:opacity-60";
+const labelCls = "block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1";
 
 function computeUsia(tglLahir?: string): string {
   const d = parseAnyDate(tglLahir);
@@ -18,16 +24,90 @@ function computeUsia(tglLahir?: string): string {
   return age >= 0 && age < 120 ? `${age} tahun` : "";
 }
 
+// -------------------------------------------------------------------------
+// PERBAIKAN BUG FOKUS (§5):
+// `Field` & `SectionTitle` DIDEFINISIKAN DI SCOPE MODUL (bukan di dalam body
+// PegawaiFormModal). Bila didefinisikan di dalam komponen, tiap setFormData →
+// re-render → identitas fungsi BARU → React menganggapnya tipe komponen berbeda
+// → unmount/mount <input> → FOKUS HILANG tiap karakter. Dengan di-hoist ke modul,
+// identitas komponen stabil → fokus dipertahankan.
+// Data dinamis (formData, handleChange, isEdit) dioper lewat PROPS.
+// Catatan: props memakai pola mandiri + index signature `[key: string]: any`
+// agar aman terhadap @types/react yang tidak terpasang (§3a).
+// -------------------------------------------------------------------------
+interface FieldProps {
+  label: string;
+  name: keyof Pegawai;
+  type?: string;
+  required?: boolean;
+  placeholder?: string;
+  colSpan?: boolean;
+  formData: Partial<Pegawai>;
+  handleChange: (e: any) => void;
+  isEdit: boolean;
+  user?: AppUser | null;
+  rowNip?: string;
+  [key: string]: any;
+}
+
+function Field({
+  label,
+  name,
+  type = "text",
+  required = false,
+  placeholder = "",
+  colSpan = false,
+  formData,
+  handleChange,
+  isEdit,
+  user,
+  rowNip = "",
+}: FieldProps) {
+  // Kunci field bila peran tidak boleh mengubahnya (admin/pimpinan: bebas;
+  // pegawai: hanya field profil miliknya). NIP juga read-only saat edit.
+  const locked = !canEditField(user, rowNip, name as string);
+  return (
+    <div className={colSpan ? "md:col-span-2" : ""}>
+      <label className={labelCls}>
+        {label}
+        {required && <span className="text-red-500"> *</span>}
+      </label>
+      <input
+        type={type}
+        name={name as string}
+        required={required}
+        value={(formData as any)[name] ?? ""}
+        onChange={handleChange}
+        readOnly={locked || (name === "nip" && isEdit)}
+        placeholder={placeholder}
+        className={inputCls}
+      />
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: any }) {
+  return (
+    <div className="md:col-span-2 mt-2 mb-1">
+      <h3 className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 border-b border-gray-100 dark:border-gray-800 pb-1">
+        {children}
+      </h3>
+    </div>
+  );
+}
+
 export function PegawaiFormModal({
   isOpen,
   onClose,
   initialData,
   onSuccess,
+  user,
 }: {
   isOpen: boolean;
   onClose: () => void;
   initialData?: Pegawai | null;
   onSuccess: () => void;
+  user?: AppUser | null;
 }) {
   const [formData, setFormData] = useState<Partial<Pegawai>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -114,34 +194,13 @@ export function PegawaiFormModal({
   };
 
   const isEdit = !!initialData;
-  const inputCls =
-    "w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none read-only:opacity-60";
-  const labelCls = "block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1";
 
-  const Field = ({ label, name, type = "text", required = false, placeholder = "", colSpan = false }:
-    { label: string; name: keyof Pegawai; type?: string; required?: boolean; placeholder?: string; colSpan?: boolean }) => (
-    <div className={colSpan ? "md:col-span-2" : ""}>
-      <label className={labelCls}>{label}{required && <span className="text-red-500"> *</span>}</label>
-      <input
-        type={type}
-        name={name as string}
-        required={required}
-        value={(formData as any)[name] ?? ""}
-        onChange={handleChange}
-        readOnly={name === "nip" && isEdit}
-        placeholder={placeholder}
-        className={inputCls}
-      />
-    </div>
-  );
-
-  const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-    <div className="md:col-span-2 mt-2 mb-1">
-      <h3 className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 border-b border-gray-100 dark:border-gray-800 pb-1">
-        {children}
-      </h3>
-    </div>
-  );
+  // Penguncian field per-peran. admin/pimpinan: semua terbuka (kecuali NIP saat edit).
+  // pegawai: hanya field profil miliknya yang boleh diubah (EDITABLE_FIELDS_OWN).
+  // NIP baris diambil dari data awal (untuk pegawai = baris sendiri).
+  const rowNip = String((initialData as any)?.nip ?? formData.nip ?? "");
+  const isLocked = (name: string): boolean => !canEditField(user, rowNip, name);
+  const canFoto = canEditField(user, rowNip, "foto");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -181,10 +240,10 @@ export function PegawaiFormModal({
               <div className="flex flex-col gap-2">
                 <span className={labelCls}>Foto Pegawai</span>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => galleryRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
+                  <button type="button" disabled={!canFoto} onClick={() => galleryRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
                     <Upload size={14} /> Galeri
                   </button>
-                  <button type="button" onClick={() => cameraRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
+                  <button type="button" disabled={!canFoto} onClick={() => cameraRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
                     <Camera size={14} /> Kamera
                   </button>
                 </div>
@@ -195,47 +254,47 @@ export function PegawaiFormModal({
             </div>
 
             <SectionTitle>Identitas & Status</SectionTitle>
-            <Field label="NIP" name="nip" required placeholder="18 digit NIP" />
-            <Field label="Nama Lengkap" name="nama" required placeholder="Nama lengkap & gelar" />
+            <Field label="NIP" name="nip" required placeholder="18 digit NIP" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
+            <Field label="Nama Lengkap" name="nama" required placeholder="Nama lengkap & gelar" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
             <div>
               <label className={labelCls}>Status <span className="text-red-500">*</span></label>
-              <select name="status" required value={formData.status || "ASN"} onChange={handleChange} className={inputCls}>
+              <select name="status" required value={formData.status || "ASN"} onChange={handleChange} disabled={isLocked("status")} className={inputCls}>
                 <option value="ASN">ASN</option>
                 <option value="PPPK">PPPK</option>
                 <option value="HONORER">HONORER</option>
                 <option value="PENSIUN">PENSIUN</option>
               </select>
             </div>
-            <Field label="Tanggal Lahir" name="tgl_lahir" type="date" />
+            <Field label="Tanggal Lahir" name="tgl_lahir" type="date" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
 
             <SectionTitle>Kepangkatan & Jabatan</SectionTitle>
-            <Field label="Golongan" name="golongan" placeholder="Contoh: III/c" />
-            <Field label="TMT Golongan (dasar KGB & Pangkat)" name="tgl_mulai_golongan" type="date" />
-            <Field label="Jabatan" name="jabatan" placeholder="Nama jabatan" colSpan />
-            <Field label="TMT Jabatan" name="tgl_mulai_jabatan" type="date" />
-            <Field label="Masa Kerja (Tahun)" name="masa_kerja_tahun" type="number" />
-            <Field label="Masa Kerja (Bulan)" name="masa_kerja_bulan" type="number" />
+            <Field label="Golongan" name="golongan" placeholder="Contoh: III/c" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
+            <Field label="TMT Golongan (dasar KGB & Pangkat)" name="tgl_mulai_golongan" type="date" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
+            <Field label="Jabatan" name="jabatan" placeholder="Nama jabatan" colSpan formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
+            <Field label="TMT Jabatan" name="tgl_mulai_jabatan" type="date" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
+            <Field label="Masa Kerja (Tahun)" name="masa_kerja_tahun" type="number" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
+            <Field label="Masa Kerja (Bulan)" name="masa_kerja_bulan" type="number" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
 
             <SectionTitle>Pendidikan</SectionTitle>
-            <Field label="Tingkat" name="tingkat" placeholder="Contoh: STRATA I" />
-            <Field label="Pendidikan (Jurusan)" name="pendidikan_jurusan" placeholder="Contoh: S-1 Sistem Informasi" />
-            <Field label="Universitas / Sekolah" name="universitas" />
-            <Field label="Tahun Lulus" name="tahun_lulus" placeholder="Contoh: 2010" />
+            <Field label="Tingkat" name="tingkat" placeholder="Contoh: STRATA I" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
+            <Field label="Pendidikan (Jurusan)" name="pendidikan_jurusan" placeholder="Contoh: S-1 Sistem Informasi" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
+            <Field label="Universitas / Sekolah" name="universitas" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
+            <Field label="Tahun Lulus" name="tahun_lulus" placeholder="Contoh: 2010" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
 
             <SectionTitle>Diklat</SectionTitle>
-            <Field label="Riwayat Diklat" name="riwayat_diklat" />
-            <Field label="Tahun Diklat" name="tahun_diklat" placeholder="Contoh: 2022" />
+            <Field label="Riwayat Diklat" name="riwayat_diklat" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
+            <Field label="Tahun Diklat" name="tahun_diklat" placeholder="Contoh: 2022" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
 
             <SectionTitle>Kontak</SectionTitle>
-            <Field label="Kontak (No. HP)" name="kontak" placeholder="08xxxxxxxxxx" />
-            <Field label="Email (untuk notifikasi)" name="email" type="email" placeholder="nama@email.go.id" />
+            <Field label="Kontak (No. HP)" name="kontak" placeholder="08xxxxxxxxxx" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
+            <Field label="Email (untuk notifikasi)" name="email" type="email" placeholder="nama@email.go.id" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
 
             <SectionTitle>Mutasi & Keterangan</SectionTitle>
-            <Field label="Catatan Mutasi (Masuk)" name="catatan_mutasi_masuk" />
-            <Field label="Catatan Mutasi (Keluar)" name="catatan_mutasi_keluar" />
+            <Field label="Catatan Mutasi (Masuk)" name="catatan_mutasi_masuk" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
+            <Field label="Catatan Mutasi (Keluar)" name="catatan_mutasi_keluar" formData={formData} handleChange={handleChange} isEdit={isEdit} user={user} rowNip={rowNip} />
             <div className="md:col-span-2">
               <label className={labelCls}>Keterangan</label>
-              <textarea name="keterangan" rows={2} value={formData.keterangan || ""} onChange={handleChange} className={inputCls} placeholder="Tambahkan keterangan jika ada" />
+              <textarea name="keterangan" rows={2} value={formData.keterangan || ""} onChange={handleChange} readOnly={isLocked("keterangan")} className={inputCls} placeholder="Tambahkan keterangan jika ada" />
             </div>
           </form>
         </div>

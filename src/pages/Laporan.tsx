@@ -160,14 +160,18 @@ export default function Laporan() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {reports.map((report) => (
-          <Card key={report.id} className="print:break-inside-avoid shadow-sm border-0">
+          <Card
+            key={report.id}
+            onClick={() => { if (!isExporting) handleExport(report.id, report.name); }}
+            className={`print:break-inside-avoid shadow-sm border-0 ${isExporting ? "opacity-60" : "cursor-pointer"}`}
+          >
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-lg">{report.name}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{report.description}</p>
               <button
-                onClick={() => handleExport(report.id, report.name)}
+                onClick={(e) => { e.stopPropagation(); handleExport(report.id, report.name); }}
                 disabled={isExporting}
                 className="w-full flex justify-center items-center gap-2 px-4 py-2.5 neuglass-pressed text-blue-700 dark:text-blue-400 font-semibold rounded-full transition-all hover:bg-white/50 dark:hover:bg-black/40 disabled:opacity-50 border border-blue-200/50 dark:border-blue-800/30"
               >

@@ -8,7 +8,7 @@
 // Selama URL masih kosong, semua operasi tulis akan menampilkan pesan jelas
 // (tidak crash) bahwa backend belum dikonfigurasi.
 // ---------------------------------------------------------------------------
-export const APPS_SCRIPT_URL: string = "https://script.google.com/macros/s/AKfycbyaiCsn1fMzpEX4K0BSr63vQo1YfK3yhOERm8ZgFrU1R-cIjlJnA0-DRjBYRuxXDPJ3KA/exec";
+export const APPS_SCRIPT_URL: string = "https://script.google.com/macros/s/AKfycbzznFSh0F40tXH96jxLG5r2_MXtsI0Yk8LYnePF59UJI4ohxGq6JSwlWwYwHImEChUjuA/exec";
 export const APPS_SCRIPT_SECRET: string = "sikandatangsel-7f3a9c2e8b14d6";
 
 export const isBackendConfigured = (): boolean =>

@@ -1,16 +1,18 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-export function Table({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) {
+export function Table({ className, containerClassName, ...props }: React.HTMLAttributes<HTMLTableElement> & { containerClassName?: string }) {
   return (
-    <div className="w-full overflow-auto rounded-2xl border border-gray-100 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm">
+    <div className={cn("w-full overflow-auto rounded-2xl border border-gray-100 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm", containerClassName)}>
       <table className={cn("w-full caption-bottom text-sm", className)} {...props} />
     </div>
   );
 }
 
 export function TableHeader({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn("[&_tr]:border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50", className)} {...props} />;
+  // sticky top-0 → header "freeze" saat body tabel digulir (item d).
+  // bg dibuat hampir pekat + blur agar baris tidak menembus header.
+  return <thead className={cn("sticky top-0 z-20 [&_tr]:border-b border-gray-100 dark:border-gray-800 bg-gray-100/95 dark:bg-gray-800/95 backdrop-blur-sm", className)} {...props} />;
 }
 
 export function TableBody({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {

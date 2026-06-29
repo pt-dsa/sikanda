@@ -1,5 +1,6 @@
 import Papa from "papaparse";
-import { normalizeData, parseMoneyString, parseIndonesianDate } from "@/lib/utils";
+import { normalizeData, parseMoneyString } from "@/lib/utils";
+import { nextCycleDate, pensionDate, withinMonths } from "@/lib/penjagaan";
 import type { DashboardMetrics, DistribusiItem } from "@/types";
 
 const SPREADSHEET_ID = "19EllcHpSDAANnoXcTCYI8LIR9TE7b_e_Cst0KMgveO0";
@@ -76,46 +77,11 @@ async function fetchFromSheet(sheetName: string, retries = 3, delay = 1000): Pro
 }
 
 // ---------------------------------------------------------------------------
-// Date helpers
+// Date helpers — perhitungan siklus & window memakai modul bersama
+// @/lib/penjagaan (sumber tunggal; keluaran lokal "YYYY-MM-DD" agar = backend).
 // ---------------------------------------------------------------------------
-function nextCycleDate(startDateStr: string, cycleYears: number): string {
-  const start = parseIndonesianDate(startDateStr);
-  if (!start) return "";
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  let year = start.getFullYear();
-  const month = start.getMonth();
-  const day = start.getDate();
-  if (today.getFullYear() > year) {
-    const diff = today.getFullYear() - year;
-    year += Math.floor(diff / cycleYears) * cycleYears;
-  }
-  let candidate = new Date(year, month, day);
-  candidate.setHours(0, 0, 0, 0);
-  while (candidate < today) {
-    year += cycleYears;
-    candidate = new Date(year, month, day);
-    candidate.setHours(0, 0, 0, 0);
-  }
-  return candidate.toISOString().split("T")[0];
-}
-
-function computePensionDate(tglLahirStr: string, bup: number): string {
-  const birth = parseIndonesianDate(tglLahirStr);
-  if (!birth) return "";
-  return new Date(birth.getFullYear() + bup, birth.getMonth(), birth.getDate())
-    .toISOString().split("T")[0];
-}
-
 function isWithinMonths(dateStr: string, months: number): boolean {
-  if (!dateStr) return false;
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const ceiling = new Date(today);
-  ceiling.setMonth(ceiling.getMonth() + months);
-  return d >= today && d <= ceiling;
+  return withinMonths(dateStr, months);
 }
 
 // ---------------------------------------------------------------------------
@@ -491,7 +457,7 @@ export const spreadsheetService = {
           tgl_mulai_jabatan: String(item.terhitung_mulai_tanggal_jabatan || "").trim(),
           tgl_kgb: nextCycleDate(tglMulaiGolongan, 2),
           tgl_pangkat: nextCycleDate(tglMulaiGolongan, 4),
-          tgl_pensiun: computePensionDate(tglLahir, bup),
+          tgl_pensiun: pensionDate(tglLahir, bup),
           masa_kerja_tahun: parseInt(String(item.masa_kerja_tahun || "0")) || 0,
           masa_kerja_bulan: parseInt(String(item.masa_kerja_bulan || "0")) || 0,
           tingkat: String(item.tingkat || "").trim(),

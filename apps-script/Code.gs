@@ -25,6 +25,29 @@ var SHEET_PEGAWAI = 'pegawai';
 var SHEET_CONFIG = 'system_config';
 var SHEET_ATTACH = 'attachments';
 
+// ====== AUTENTIKASI & RBAC (TAHAP 3) ===========================================================
+// Sheet gerbang akses (DIBUAT OTOMATIS bila belum ada). TIDAK menyentuh sheet
+// lama users/roles/menus (artefak migrasi SIMOSDA). Kolom:
+//   email | role | nip | nama | is_active | created_by | created_at | last_login
+var SHEET_ACCESS = 'app_access';
+
+// API key web Firebase (publik) — dipakai memverifikasi idToken via Identity Toolkit.
+// Samakan dengan konfigurasi di src/lib/firebase.ts.
+var FIREBASE_API_KEY = 'AIzaSyD6TphBtHCEIBDN0UHB_8D2JpFZ09wmsr4';
+
+// Email admin pertama (BOOTSTRAP). WAJIB DIISI Dwi agar admin pasti bisa masuk
+// pertama kali walau sheet app_access masih kosong. Contoh: 'nama@gmail.com'.
+var BOOTSTRAP_ADMIN_EMAIL = '';
+
+// JENDELA TRANSISI: bila true, backend masih menerima `secret` lama SELAIN idToken.
+// Setelah jalur Google Sign-In terbukti, ubah ke false dan hapus SECRET dari
+// src/appsScriptConfig.ts agar lubang ditutup (baca publik tetap via GViz = Tahap 3-Lanjut).
+var ALLOW_LEGACY_SECRET = true;
+
+// Field profil yang BOLEH diubah pegawai pada BARIS MILIKNYA (cermin rbac.ts).
+var EDITABLE_OWN = ['foto', 'kontak', 'email', 'tingkat', 'pendidikan_jurusan',
+                    'universitas', 'tahun_lulus', 'riwayat_diklat', 'tahun_diklat'];
+
 // ====== ROUTER HTTP =============================================================================
 function doGet(e) {
   // Health-check sederhana.
@@ -39,13 +62,16 @@ function doPost(e) {
     return _json({ ok: false, error: 'Body bukan JSON yang valid.' });
   }
 
-  if (body.secret !== SHARED_SECRET) {
-    return _json({ ok: false, error: 'Token tidak valid.' });
+  // --- AUTENTIKASI (idToken Firebase, atau secret lama saat transisi) ---
+  var actor;
+  try {
+    actor = authenticate_(body); // { email, role, nip, nama }  atau throw
+  } catch (err) {
+    return _json({ ok: false, error: String(err && err.message ? err.message : err) });
   }
 
   var lock = LockService.getScriptLock();
   try {
-    // Tunggu hingga 30 detik bila ada operasi tulis lain berjalan (anti-crash multi-user).
     lock.waitLock(30000);
   } catch (err) {
     return _json({ ok: false, error: 'Server sibuk, silakan coba lagi sebentar.' });
@@ -53,14 +79,48 @@ function doPost(e) {
 
   try {
     switch (body.action) {
-      case 'ping':            return _json({ ok: true, pong: true });
-      case 'pegawai_save':    return _json(savePegawai_(body.data, !!body.isNew));
-      case 'pegawai_delete':  return _json(deletePegawai_(String(body.nip || '')));
-      case 'upload_foto':     return _json(uploadFoto_(body));
-      case 'get_config':      return _json({ ok: true, config: getConfig_() });
-      case 'set_config':      return _json(setConfig_(String(body.key || ''), String(body.value || '')));
-      case 'notifikasi_run':  return _json(kirimNotifikasiBukuPenjagaan());
-      default:                return _json({ ok: false, error: 'Action tidak dikenal: ' + body.action });
+      case 'ping':
+        return _json({ ok: true, pong: true, who: actor.email, role: actor.role });
+
+      case 'whoami':
+        return _json({ ok: true, email: actor.email, role: actor.role, nip: actor.nip || '', nama: actor.nama || '' });
+
+      // --- Pegawai ---
+      case 'pegawai_save':
+        return _json(savePegawai_(guardPegawaiSave_(actor, body), !!body.isNew));
+      case 'pegawai_delete':
+        requireManage_(actor);
+        return _json(deletePegawai_(String(body.nip || '')));
+      case 'upload_foto':
+        guardUploadFoto_(actor, body);
+        return _json(uploadFoto_(body));
+
+      // --- Konfigurasi ---
+      case 'get_config':
+        return _json({ ok: true, config: getConfig_() });
+      case 'set_config':
+        requireManage_(actor);
+        return _json(setConfig_(String(body.key || ''), String(body.value || '')));
+      case 'notifikasi_run':
+        requireManage_(actor);
+        return _json(kirimNotifikasiBukuPenjagaan());
+
+      // --- Kelola Akun (admin saja) ---
+      case 'user_list':
+        requireAdmin_(actor);
+        return _json(userList_());
+      case 'user_save':
+        requireAdmin_(actor);
+        return _json(userSave_(actor, body.data || {}, !!body.isNew));
+      case 'user_delete':
+        requireAdmin_(actor);
+        return _json(userDelete_(String(body.email || '')));
+      case 'user_seed_from_pegawai':
+        requireAdmin_(actor);
+        return _json(userSeedFromPegawai_(actor));
+
+      default:
+        return _json({ ok: false, error: 'Action tidak dikenal: ' + body.action });
     }
   } catch (err) {
     return _json({ ok: false, error: String(err && err.message ? err.message : err) });
@@ -68,6 +128,267 @@ function doPost(e) {
     lock.releaseLock();
   }
 }
+
+// ====== AUTENTIKASI: idToken Firebase / secret transisi =========================================
+function authenticate_(body) {
+  // 1) Jalur utama: idToken Firebase.
+  if (body.idToken) {
+    var info = verifyFirebaseToken_(String(body.idToken));
+    if (!info || !info.email) throw new Error('Token tidak valid atau kedaluwarsa. Silakan masuk ulang.');
+    if (info.email_verified === false) throw new Error('Email Google Anda belum terverifikasi.');
+    return resolveAccess_(String(info.email).toLowerCase().trim());
+  }
+  // 2) Jalur transisi: secret lama → diperlakukan sebagai admin (sementara).
+  if (ALLOW_LEGACY_SECRET && body.secret && body.secret === SHARED_SECRET) {
+    return { email: '(legacy-secret)', role: 'admin', nip: '', nama: 'Akses Secret (transisi)' };
+  }
+  throw new Error('Autentikasi gagal: idToken/secret tidak valid.');
+}
+
+// Verifikasi idToken via Identity Toolkit accounts:lookup (tanpa kripto manual).
+// Google menolak token tak valid/kedaluwarsa dengan kode non-200.
+function verifyFirebaseToken_(idToken) {
+  var url = 'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + encodeURIComponent(FIREBASE_API_KEY);
+  var resp = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({ idToken: idToken }),
+    muteHttpExceptions: true
+  });
+  if (resp.getResponseCode() !== 200) return null;
+  var data;
+  try { data = JSON.parse(resp.getContentText()); } catch (e) { return null; }
+  if (!data || !data.users || !data.users.length) return null;
+  var u = data.users[0];
+  return { email: u.email, email_verified: (u.emailVerified === true) };
+}
+
+// Cocokkan email → peran via sheet app_access (+ BOOTSTRAP_ADMIN_EMAIL).
+function resolveAccess_(email) {
+  email = String(email).toLowerCase().trim();
+  if (BOOTSTRAP_ADMIN_EMAIL && email === String(BOOTSTRAP_ADMIN_EMAIL).toLowerCase().trim()) {
+    return { email: email, role: 'admin', nip: '', nama: 'Bootstrap Admin' };
+  }
+  var sheet = ensureAccessSheet_();
+  var values = sheet.getDataRange().getValues();
+  var h = values[0].map(_normKey);
+  var cEmail = h.indexOf('email'), cRole = h.indexOf('role'), cNip = h.indexOf('nip'),
+      cNama = h.indexOf('nama'), cActive = h.indexOf('is_active'), cLast = h.indexOf('last_login');
+  for (var r = 1; r < values.length; r++) {
+    if (String(values[r][cEmail] || '').toLowerCase().trim() === email) {
+      var active = String(values[r][cActive]).toUpperCase() !== 'FALSE';
+      if (!active) throw new Error('Akun Anda dinonaktifkan. Hubungi admin.');
+      var role = String(values[r][cRole] || 'pegawai').toLowerCase().trim();
+      if (['admin', 'pimpinan', 'pegawai'].indexOf(role) === -1) role = 'pegawai';
+      if (cLast !== -1) sheet.getRange(r + 1, cLast + 1).setValue(new Date());
+      return { email: email, role: role, nip: String(values[r][cNip] || '').trim(), nama: String(values[r][cNama] || '').trim() };
+    }
+  }
+  throw new Error('Akun belum terdaftar. Hubungi admin untuk didaftarkan terlebih dahulu.');
+}
+
+// Buat sheet app_access bila belum ada; pastikan kolom NIP berformat TEKS.
+function ensureAccessSheet_() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(SHEET_ACCESS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_ACCESS);
+    sheet.appendRow(['email', 'role', 'nip', 'nama', 'is_active', 'created_by', 'created_at', 'last_login']);
+  }
+  // Kolom NIP = kolom ke-3 (urutan header tetap). Paksa teks agar 18 digit tak rusak.
+  try { sheet.getRange(1, 3, sheet.getMaxRows(), 1).setNumberFormat('@'); } catch (e) {}
+  return sheet;
+}
+
+// --- Guard peran ---
+function isManager_(a) { return a && (a.role === 'admin' || a.role === 'pimpinan'); }
+function requireManage_(a) { if (!isManager_(a)) throw new Error('Akses ditolak: butuh peran admin/pimpinan.'); }
+function requireAdmin_(a) { if (!a || a.role !== 'admin') throw new Error('Akses ditolak: khusus admin.'); }
+
+// Penegakan simpan pegawai: admin/pimpinan bebas; pegawai hanya baris sendiri &
+// field terbatas (field terlarang DIBUANG di server — pertahanan berlapis).
+function guardPegawaiSave_(actor, body) {
+  var data = body && body.data ? body.data : {};
+  if (isManager_(actor)) return data;
+  if (actor.role === 'pegawai') {
+    if (body.isNew) throw new Error('Pegawai tidak boleh menambah data baru.');
+    var targetNip = String(data.nip || '').trim();
+    var ownNip = String(actor.nip || '').trim();
+    if (!ownNip || targetNip !== ownNip) throw new Error('Anda hanya boleh mengubah data diri sendiri.');
+    var clean = { nip: ownNip };
+    for (var i = 0; i < EDITABLE_OWN.length; i++) {
+      var f = EDITABLE_OWN[i];
+      if (Object.prototype.hasOwnProperty.call(data, f)) clean[f] = data[f];
+    }
+    return clean;
+  }
+  throw new Error('Akses ditolak.');
+}
+
+// Upload foto: pegawai hanya untuk NIP sendiri; admin/pimpinan bebas.
+function guardUploadFoto_(actor, body) {
+  if (isManager_(actor)) return;
+  if (actor.role === 'pegawai') {
+    if (String(body.nip || '').trim() !== String(actor.nip || '').trim())
+      throw new Error('Anda hanya boleh mengubah foto diri sendiri.');
+    return;
+  }
+  throw new Error('Akses ditolak.');
+}
+
+// ====== KELOLA AKUN (app_access) ===============================================================
+function userList_() {
+  var sheet = ensureAccessSheet_();
+  var values = sheet.getDataRange().getValues();
+  if (values.length < 2) return { ok: true, users: [] };
+  var h = values[0].map(_normKey);
+  var cEmail = h.indexOf('email'), cRole = h.indexOf('role'), cNip = h.indexOf('nip'),
+      cNama = h.indexOf('nama'), cActive = h.indexOf('is_active');
+  var out = [];
+  for (var r = 1; r < values.length; r++) {
+    var email = String(values[r][cEmail] || '').toLowerCase().trim();
+    var nip   = cNip   !== -1 ? String(values[r][cNip]  || '').trim() : '';
+    // Sertakan baris bila ada email ATAU ada NIP (pegawai tanpa email masih perlu ditampilkan
+    // di Kelola Akun agar admin bisa melengkapi emailnya lalu mengaktifkan).
+    if (!email && !nip) continue;
+    out.push({
+      email: email,
+      role: String(values[r][cRole] || 'pegawai').toLowerCase().trim(),
+      nip: nip,
+      nama: cNama !== -1 ? String(values[r][cNama] || '').trim() : '',
+      is_active: String(values[r][cActive]).toUpperCase() !== 'FALSE'
+    });
+  }
+  return { ok: true, users: out };
+}
+
+function userSave_(actor, data, isNew) {
+  var email = String(data.email || '').toLowerCase().trim();
+  var nip   = String(data.nip   || '').trim();
+  var role  = String(data.role  || 'pegawai').toLowerCase().trim();
+
+  // Validasi email wajib ada kecuali saat create oleh seed (tidak mungkin terjadi dari UI).
+  if (!email || email.indexOf('@') === -1) throw new Error('Email Google yang valid wajib diisi.');
+  if (['admin', 'pimpinan', 'pegawai'].indexOf(role) === -1) throw new Error('Peran tidak valid.');
+  if (role === 'pegawai' && !nip) throw new Error('NIP wajib diisi untuk peran pegawai.');
+
+  var sheet = ensureAccessSheet_();
+  var values = sheet.getDataRange().getValues();
+  var h = values[0].map(_normKey);
+  var cEmail = h.indexOf('email'), cNip2 = h.indexOf('nip');
+  var activeStr = (data.is_active === false) ? 'FALSE' : 'TRUE';
+
+  // Cari baris yang cocok: utamakan kecocokan email, lalu NIP (untuk baris tanpa email dari seed).
+  var rowIndex = -1;
+  for (var r = 1; r < values.length; r++) {
+    var rowEmail = String(values[r][cEmail] || '').toLowerCase().trim();
+    if (rowEmail && rowEmail === email) { rowIndex = r; break; }
+  }
+  if (rowIndex === -1 && nip && cNip2 !== -1) {
+    for (var r2 = 1; r2 < values.length; r2++) {
+      if (String(values[r2][cNip2] || '').trim() === nip) { rowIndex = r2; break; }
+    }
+  }
+
+  if (rowIndex === -1) {
+    // Baris baru (Tambah Akun manual dari UI).
+    var row = [];
+    for (var i = 0; i < values[0].length; i++) row.push('');
+    setCell_(row, h, 'email', email);
+    setCell_(row, h, 'role', role);
+    setCell_(row, h, 'nip', nip);
+    setCell_(row, h, 'nama', String(data.nama || ''));
+    setCell_(row, h, 'is_active', activeStr);
+    setCell_(row, h, 'created_by', actor.email);
+    setCell_(row, h, 'created_at', new Date());
+    sheet.appendRow(row);
+    var last = sheet.getLastRow();
+    if (cNip2 !== -1) sheet.getRange(last, cNip2 + 1).setNumberFormat('@').setValue(nip);
+    return { ok: true, mode: 'create', email: email };
+  }
+
+  // Update baris yang ada (termasuk melengkapi email pada baris hasil seed).
+  setCellAt_(sheet, h, rowIndex, 'email', email);
+  setCellAt_(sheet, h, rowIndex, 'role', role);
+  if (cNip2 !== -1) sheet.getRange(rowIndex + 1, cNip2 + 1).setNumberFormat('@').setValue(nip);
+  setCellAt_(sheet, h, rowIndex, 'nama', String(data.nama || ''));
+  if (data.is_active !== undefined) setCellAt_(sheet, h, rowIndex, 'is_active', activeStr);
+  return { ok: true, mode: 'update', email: email };
+}
+
+function userDelete_(email) {
+  email = String(email).toLowerCase().trim();
+  if (!email) throw new Error('Email wajib diisi.');
+  var sheet = ensureAccessSheet_();
+  var values = sheet.getDataRange().getValues();
+  var h = values[0].map(_normKey);
+  var cEmail = h.indexOf('email'), cActive = h.indexOf('is_active');
+  for (var r = 1; r < values.length; r++) {
+    if (String(values[r][cEmail] || '').toLowerCase().trim() === email) {
+      sheet.getRange(r + 1, cActive + 1).setValue('FALSE');
+      return { ok: true, email: email };
+    }
+  }
+  throw new Error('Akun tidak ditemukan.');
+}
+
+// Tarik pegawai aktif ber-NIP dari sheet pegawai → buat baris akun peran 'pegawai'.
+// Email dari kolom EMAIL pegawai bila ada & bukan placeholder; bila kosong →
+// akun dibuat is_active=FALSE agar admin lengkapi email lalu aktifkan.
+function userSeedFromPegawai_(actor) {
+  var pe = _sheet(SHEET_PEGAWAI);
+  var pv = pe.getDataRange().getValues();
+  var ph = pv[0].map(_normKey);
+  var cNip = ph.indexOf('nip'), cNama = ph.indexOf('nama_pegawai'),
+      cEmailP = ph.indexOf('email'), cActiveP = ph.indexOf('is_active');
+
+  var sheet = ensureAccessSheet_();
+  var av = sheet.getDataRange().getValues();
+  var ah = av[0].map(_normKey);
+  var cEmailA = ah.indexOf('email'), cNipA = ah.indexOf('nip');
+
+  var existNip = {}, existEmail = {};
+  for (var r = 1; r < av.length; r++) {
+    var en = String(av[r][cNipA] || '').trim(); if (en) existNip[en] = 1;
+    var ee = String(av[r][cEmailA] || '').toLowerCase().trim(); if (ee) existEmail[ee] = 1;
+  }
+
+  var rows = [], added = 0;
+  for (var i = 1; i < pv.length; i++) {
+    var nip = String(pv[i][cNip] || '').trim();
+    if (!nip) continue;
+    if (cActiveP !== -1 && String(pv[i][cActiveP]).toUpperCase() === 'FALSE') continue;
+    if (existNip[nip]) continue;
+
+    var nama = String(pv[i][cNama] || '').trim();
+    var emailP = cEmailP !== -1 ? String(pv[i][cEmailP] || '').toLowerCase().trim() : '';
+    if (emailP === 'simosdatangsel@gmail.com') emailP = ''; // placeholder generik → abaikan
+    if (emailP && existEmail[emailP]) emailP = '';          // email sudah dipakai → kosongkan
+
+    var row = [];
+    for (var k = 0; k < av[0].length; k++) row.push('');
+    setCell_(row, ah, 'email', emailP);
+    setCell_(row, ah, 'role', 'pegawai');
+    setCell_(row, ah, 'nip', nip);
+    setCell_(row, ah, 'nama', nama);
+    setCell_(row, ah, 'is_active', emailP ? 'TRUE' : 'FALSE');
+    setCell_(row, ah, 'created_by', actor.email);
+    setCell_(row, ah, 'created_at', new Date());
+    rows.push(row);
+    existNip[nip] = 1; if (emailP) existEmail[emailP] = 1;
+    added++;
+  }
+
+  if (rows.length) {
+    var startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 1, rows.length, av[0].length).setValues(rows);
+    if (cNipA !== -1) sheet.getRange(startRow, cNipA + 1, rows.length, 1).setNumberFormat('@');
+  }
+  return { ok: true, added: added, note: 'Baris pegawai tanpa email dibuat NONAKTIF — lengkapi email lalu aktifkan.' };
+}
+
+function setCell_(row, h, key, val) { var c = h.indexOf(key); if (c !== -1) row[c] = val; }
+function setCellAt_(sheet, h, rowIndex, key, val) { var c = h.indexOf(key); if (c !== -1) sheet.getRange(rowIndex + 1, c + 1).setValue(val); }
 
 // ====== PEGAWAI: SIMPAN (CREATE / UPDATE) ======================================================
 // Pemetaan: key dari frontend  →  nama kolom (sudah dinormalkan) di sheet 'pegawai'.
