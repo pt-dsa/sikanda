@@ -5,6 +5,7 @@ import { canViewMenu, type MenuKey } from "@/lib/rbac";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ToastProvider } from "@/components/ui/Toast";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { PWAPrompt } from "@/components/layout/PWAPrompt";
 
 // Login dimuat eager (paint pertama untuk pengguna belum login — tanpa kedip Suspense).
 import Login from "@/pages/Login";
@@ -101,6 +102,7 @@ export default function App() {
           </HashRouter>
         </AuthProvider>
       </ToastProvider>
+      <PWAPrompt />
     </ThemeProvider>
   );
 }

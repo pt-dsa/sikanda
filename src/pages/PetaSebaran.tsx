@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { spreadsheetService } from "@/services/spreadsheetService";
+import { dataService } from "@/services/dataService";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -97,9 +97,9 @@ export default function PetaSebaran() {
     async function loadData() {
       try {
         const [vehicles, equipment, employees] = await Promise.all([
-          spreadsheetService.getVehicles(),
-          spreadsheetService.getEquipment(),
-          spreadsheetService.getEmployeeDirectory(),
+          dataService.getVehicles(),
+          dataService.getEquipment(),
+          dataService.getEmployeeDirectory(),
         ]);
         const employeeDirectory = employees as Pegawai[];
 
@@ -311,8 +311,17 @@ export default function PetaSebaran() {
                 placeholder="Cari aset..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full sm:w-40 px-3 pl-8 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold shadow-sm focus:ring-2 focus:ring-blue-500"
+                className="w-full sm:w-40 px-3 pl-8 pr-8 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold shadow-sm focus:ring-2 focus:ring-blue-500"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  aria-label="Hapus pencarian"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">

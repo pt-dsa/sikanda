@@ -13,6 +13,29 @@ export type LoadingProgressSnapshot = {
 const tasks = new Map<string, LoadingTask>();
 const listeners = new Set<() => void>();
 let snapshot: LoadingProgressSnapshot = { progress: 0, label: "Menyiapkan halaman", active: 0 };
+let autoProgressTimer: number | null = null;
+
+function manageAutoProgress() {
+  const values = Array.from(tasks.values());
+  const active = values.filter((task) => !task.completed);
+  
+  if (active.length > 0 && !autoProgressTimer) {
+    autoProgressTimer = window.setInterval(() => {
+      let changed = false;
+      tasks.forEach((task) => {
+        if (!task.completed && task.progress < 92) {
+          const increment = Math.max(1, Math.floor((95 - task.progress) / 12));
+          task.progress += increment;
+          changed = true;
+        }
+      });
+      if (changed) publish();
+    }, 400);
+  } else if (active.length === 0 && autoProgressTimer) {
+    window.clearInterval(autoProgressTimer);
+    autoProgressTimer = null;
+  }
+}
 
 function publish() {
   const values = Array.from(tasks.values());
@@ -24,6 +47,7 @@ function publish() {
   const label = (active[active.length - 1] || values[values.length - 1])?.label || "Menyiapkan halaman";
   snapshot = { progress: Math.max(0, Math.min(100, progress)), label, active: active.length };
   listeners.forEach((listener) => listener());
+  manageAutoProgress();
 }
 
 export function beginLoadingTask(id: string, label = "Mengambil data") {

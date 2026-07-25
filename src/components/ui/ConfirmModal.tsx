@@ -10,7 +10,7 @@ import { AlertTriangle } from "lucide-react";
 export interface ConfirmState {
   open: boolean;
   title: string;
-  message: string;
+  message: React.ReactNode;
   confirmLabel?: string;
   confirmClass?: string;
   onConfirm: () => void;

@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { apiService, type AccessUser } from "@/services/apiService";
-import { spreadsheetService } from "@/services/spreadsheetService";
+import { dataService } from "@/services/dataService";
 import type { Pegawai } from "@/types";
 import { AuthContext } from "@/components/layout/AppShell";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { ConfirmModal, CONFIRM_CLOSED, type ConfirmState } from "@/components/ui/ConfirmModal";
 import { employmentStatusLabel, matchesEmploymentStatus } from "@/lib/employmentStatus";
 import { useToast } from "@/components/ui/Toast";
+import Papa from "papaparse";
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Administrator",
@@ -108,6 +109,27 @@ export default function KelolaAkun() {
     });
   }, [users, pegawai, searchQuery, roleFilter, statusFilter, pegawaiStatusFilter]);
 
+  const handleDownloadCSV = () => {
+    if (filteredUsers.length === 0) return;
+    const data = filteredUsers.map((u) => ({
+      Email: u.email,
+      NIP: u.nip || "-",
+      Nama: u.nama || "-",
+      Peran: u.role,
+      Status: accountStatus(u).label,
+    }));
+    const csv = Papa.unparse(data);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Data_Akun_SIKANDA_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   function askConfirm(opts: Omit<ConfirmState, "open">) {
     setConfirm({ ...opts, open: true });
   }
@@ -115,13 +137,13 @@ export default function KelolaAkun() {
 
   async function load(showFullLoading = true, force = false) {
     if (showFullLoading) setLoading(true);
-    if (force) spreadsheetService.clearCache();
+    if (force) dataService.clearCache();
     setError(null);
     setDenied(false);
     try {
       const [res, employeeRows] = await Promise.all([
         apiService.userList(),
-        spreadsheetService.getPegawai(),
+        dataService.getPegawai(),
       ]);
       const sorted = (res.users || []).slice().sort((a, b) => a.email.localeCompare(b.email));
       setUsers(sorted);
@@ -365,6 +387,12 @@ export default function KelolaAkun() {
             Buat dari Data Pegawai
           </button>
           <button
+            onClick={handleDownloadCSV}
+            className="flex items-center justify-center gap-2 min-h-11 px-4 py-2 text-sm font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shrink-0 shadow-sm"
+          >
+            <Download size={14} /> Download CSV
+          </button>
+          <button
             onClick={openAdd}
             className="flex items-center justify-center gap-2 min-h-11 px-4 py-2 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm shrink-0"
           >
@@ -384,8 +412,17 @@ export default function KelolaAkun() {
                 placeholder="Cari nama, email, atau NIP..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+                className="w-full pl-9 pr-10 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  aria-label="Hapus kata kunci pencarian"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <Filter className="text-gray-400 shrink-0 hidden sm:block" size={16} />

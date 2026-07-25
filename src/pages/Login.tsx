@@ -23,7 +23,7 @@ function getClientKey(): string {
   }
 }
 
-const inputClass = "w-full rounded-xl border border-white/70 dark:border-gray-700 bg-white/70 dark:bg-gray-900/70 py-3 pl-11 pr-4 text-sm font-semibold text-gray-900 dark:text-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25";
+const inputClass = "w-full rounded-xl border border-white/70 dark:border-gray-700 bg-white/70 dark:bg-gray-900/70 py-2.5 pl-11 pr-4 text-sm font-semibold text-gray-900 dark:text-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25";
 
 export default function Login() {
   const { user, loading, loginWithPassword, registerAccount } = useContext(AuthContext);
@@ -100,21 +100,21 @@ export default function Login() {
   return (
     <main className="min-h-screen bg-cover bg-center bg-no-repeat bg-gray-950 px-4 py-8" style={{ backgroundImage: `url(${bgUrl})` }}>
       <div className="fixed inset-0 bg-slate-950/25 backdrop-blur-[2px]" />
-      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-xl items-center justify-center">
-        <section className="w-full rounded-[32px] border border-white/55 bg-white/45 p-5 shadow-2xl backdrop-blur-2xl dark:bg-gray-950/55 sm:p-8">
-          <div className="mb-5 flex flex-col items-center text-center">
-            <BrandLogo className="mb-3 h-20 w-20 sm:h-24 sm:w-24" />
-            <h1 className="text-2xl font-extrabold tracking-tight text-gray-950 dark:text-white">Selamat Datang di SIKANDA</h1>
-            <p className="mt-1 text-sm font-bold text-gray-700 dark:text-gray-300">Sistem Informasi Kepegawaian dan Pengelolaan Aset Daerah</p>
+      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center justify-center">
+        <section className="w-full rounded-[32px] border border-white/55 bg-white/45 p-5 shadow-2xl backdrop-blur-2xl dark:bg-gray-950/55 sm:p-6 sm:px-8">
+          <div className="mb-4 flex flex-col items-center text-center overflow-hidden">
+            <BrandLogo className="mb-2 h-16 w-16 sm:h-16 sm:w-16" />
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-950 dark:text-white">Selamat Datang di SIKANDA</h1>
+            <p className="mt-1 text-[11px] sm:text-xs font-bold text-gray-700 dark:text-gray-300 px-1 whitespace-nowrap tracking-tight sm:tracking-normal w-full overflow-hidden text-ellipsis">Sistem Informasi Kepegawaian dan Pengelolaan Aset Daerah</p>
           </div>
 
-          <div className="mb-5 grid grid-cols-2 rounded-2xl bg-white/50 p-1 dark:bg-gray-900/50">
-            <button type="button" onClick={() => changeMode("login")} className={`rounded-xl px-3 py-2.5 text-sm font-bold transition ${mode === "login" ? "bg-blue-600 text-white shadow" : "text-gray-600 dark:text-gray-300"}`}>Masuk</button>
-            <button type="button" onClick={() => changeMode("register")} className={`rounded-xl px-3 py-2.5 text-sm font-bold transition ${mode === "register" ? "bg-blue-600 text-white shadow" : "text-gray-600 dark:text-gray-300"}`}>Registrasi</button>
+          <div className="mb-4 grid grid-cols-2 rounded-2xl bg-white/50 p-1 dark:bg-gray-900/50">
+            <button type="button" onClick={() => changeMode("login")} className={`rounded-xl px-3 py-2 text-sm font-bold transition ${mode === "login" ? "bg-blue-600 text-white shadow" : "text-gray-600 dark:text-gray-300"}`}>Masuk</button>
+            <button type="button" onClick={() => changeMode("register")} className={`rounded-xl px-3 py-2 text-sm font-bold transition ${mode === "register" ? "bg-blue-600 text-white shadow" : "text-gray-600 dark:text-gray-300"}`}>Registrasi</button>
           </div>
 
           {loading ? <LoadingState compact label={mode === "login" ? "Memverifikasi akun" : "Mendaftarkan akun"} /> : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3">
               {notice && <div className="rounded-xl border border-emerald-200 bg-emerald-50/90 p-3 text-sm font-semibold text-emerald-700">{notice}</div>}
               {error && (
                 <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50/90 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/70 dark:text-red-300">
@@ -161,7 +161,7 @@ export default function Login() {
 
               <LogoSliderCaptcha purpose={mode} clientKey={clientKey} resetKey={captchaReset} onChange={setCaptcha} />
 
-              <button type="submit" disabled={!captcha} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-700 to-emerald-600 px-5 py-3 font-bold text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55">
+              <button type="submit" disabled={!captcha} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-700 to-emerald-600 px-5 py-2.5 font-bold text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55">
                 {mode === "login" ? <><KeyRound size={18} /> Masuk ke SIKANDA</> : <><UserPlus size={18} /> Daftarkan Akun</>}
               </button>
               <p className="text-center text-xs font-medium text-gray-600 dark:text-gray-300">

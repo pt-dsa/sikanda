@@ -2,14 +2,48 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
   return {
     base: process.env.GITHUB_ACTIONS === 'true' && process.env.GITHUB_REPOSITORY ? `/${process.env.GITHUB_REPOSITORY.split('/')[1]}/` : '/',
     // Aset publik lama pada baseline berisi PNG rusak. Semua aset runtime V1
     // diimpor dari src agar Vite hanya menerbitkan berkas yang tervalidasi.
-    publicDir: false,
-    plugins: [react(), tailwindcss()],
+    publicDir: 'public',
+    plugins: [
+      react(), 
+      tailwindcss(),
+      VitePWA({
+        registerType: 'prompt',
+        includeAssets: ['pwa-192x192.png', 'pwa-512x512.png'],
+        manifest: {
+          name: 'SIKANDA',
+          short_name: 'SIKANDA',
+          description: 'Sistem Informasi Kepegawaian dan Pengelolaan Aset Daerah',
+          theme_color: '#0f5ad7',
+          background_color: '#ffffff',
+          display: 'standalone',
+          icons: [
+            {
+              src: 'pwa-192x192.png',
+              sizes: '192x192',
+              type: 'image/png'
+            },
+            {
+              src: 'pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png'
+            },
+            {
+              src: 'pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any maskable'
+            }
+          ]
+        }
+      })
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

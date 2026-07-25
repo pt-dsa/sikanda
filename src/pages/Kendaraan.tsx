@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useMemo, useRef } from "react";
-import { spreadsheetService } from "@/services/spreadsheetService";
+import { dataService } from "@/services/dataService";
 import { Pegawai, Vehicle } from "@/types";
 import { StatusBadge } from "@/components/ui/Badge";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -79,11 +79,11 @@ export default function Kendaraan() {
   // Fungsi muat data di lingkup komponen agar bisa dipanggil ulang
   // (mis. sinkronisasi ulang saat operasi tulis gagal).
   const load = async (force = false) => {
-    if (force) spreadsheetService.clearCache();
+    if (force) dataService.clearCache();
     try {
       const [res, employeeRows] = await Promise.all([
-        spreadsheetService.getVehicles(),
-        spreadsheetService.getEmployeeDirectory(),
+        dataService.getVehicles(),
+        dataService.getEmployeeDirectory(),
       ]);
       setData(res);
       setEmployees(employeeRows as Pegawai[]);
@@ -118,7 +118,7 @@ export default function Kendaraan() {
       confirmClass: "bg-red-600 hover:bg-red-700",
       onConfirm: async () => {
         try {
-          await spreadsheetService.deleteVehicle(id);
+          await dataService.deleteVehicle(id);
           setData(prev => prev.filter(item => item.asset_id !== id));
           setSelectedRows(prev => prev.filter(r => r.asset_id !== id));
           toast.success("Data Dihapus", "Data kendaraan berhasil dihapus.");
@@ -140,7 +140,7 @@ export default function Kendaraan() {
       onConfirm: async () => {
         try {
           for (const r of selectedRows) {
-            if (r.asset_id) await spreadsheetService.deleteVehicle(r.asset_id);
+            if (r.asset_id) await dataService.deleteVehicle(r.asset_id);
           }
           const idsToDelete = new Set(selectedRows.map(r => r.asset_id));
           setData(prev => prev.filter(item => !idsToDelete.has(item.asset_id)));
@@ -165,7 +165,7 @@ export default function Kendaraan() {
         try {
           // Persistenkan ke basis data — bukan hanya tampilan (anti data semu).
           for (const r of selectedRows) {
-            if (r.asset_id) await spreadsheetService.saveVehicle({ asset_id: r.asset_id, kondisi: newStatus }, false);
+            if (r.asset_id) await dataService.saveVehicle({ asset_id: r.asset_id, kondisi: newStatus }, false);
           }
           const idsToUpdate = new Set(selectedRows.map(r => r.asset_id));
           setData(prev => prev.map(item => idsToUpdate.has(item.asset_id) ? { ...item, kondisi: newStatus } : item));
@@ -252,7 +252,7 @@ export default function Kendaraan() {
     }
     setSaving(true);
     try {
-      const result = await spreadsheetService.saveVehicle(payload, isNew);
+      const result = await dataService.saveVehicle(payload, isNew);
       if (photoFile) {
         try {
           const encoded = await fileToBase64(photoFile);
@@ -538,6 +538,7 @@ export default function Kendaraan() {
             placeholder="Cari nopol, merk, pengguna..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onClear={() => setSearch("")}
           />
           <select 
             className="w-full rounded-full neuglass-pressed text-gray-900 dark:text-gray-100 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"

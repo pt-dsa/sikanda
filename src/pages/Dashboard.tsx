@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { LoadingState } from "@/components/ui/LoadingState";
-import { spreadsheetService } from "@/services/spreadsheetService";
+import { dataService } from "@/services/dataService";
 import { DashboardMetrics } from "@/types";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import {
@@ -100,22 +100,28 @@ function AlertCard({ title, count, subtitle, colorScheme, icon }: {
 // ---------------------------------------------------------------------------
 // Horizontal Bar Chart
 // ---------------------------------------------------------------------------
-function HorizontalBarChart({ data, labelClass = "w-16", fillHeight = false }: {
+function HorizontalBarChart({ data, labelClass = "w-16", fillHeight = false, onClickBar, colorStart = 0 }: {
   data: { name: string; value: number }[];
   labelClass?: string;
   fillHeight?: boolean;
+  onClickBar?: (item: { name: string; value: number }) => void;
+  colorStart?: number;
 }) {
   if (!data || data.length === 0) return <p className="text-sm text-gray-400 py-6 text-center">Tidak ada data</p>;
   const maxVal = Math.max(...data.map((d) => d.value), 1);
   return (
     <div className={fillHeight ? "min-h-[220px] w-full flex flex-col justify-evenly gap-3" : "space-y-2.5 w-full"}>
       {data.map((item, idx) => (
-        <div key={item.name} className="flex items-center gap-2.5 sm:gap-3 w-full">
+        <div key={item.name} 
+             className={`flex items-center gap-2.5 sm:gap-3 w-full rounded-lg transition-all ${onClickBar ? "cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30 -mx-1.5 px-1.5 py-0.5" : ""}`}
+             onClick={() => onClickBar && onClickBar(item)}
+             title={onClickBar ? `Klik untuk melihat data: ${item.name}` : undefined}
+        >
           <span className={`text-xs font-medium text-gray-600 dark:text-gray-400 shrink-0 text-right truncate ${labelClass}`} title={item.name}>{item.name}</span>
           <div className={`flex-1 min-w-0 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden ${fillHeight ? "h-7" : "h-5"}`}>
             <motion.div
               className="h-full rounded-full flex items-center justify-end pr-2"
-              style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
+              style={{ backgroundColor: CHART_COLORS[(idx + colorStart) % CHART_COLORS.length] }}
               initial={{ width: 0 }} animate={{ width: `${(item.value / maxVal) * 100}%` }}
               transition={{ duration: 0.6, delay: idx * 0.08, ease: "easeOut" }}
             >
@@ -190,6 +196,7 @@ function PegawaiSetupGuide({ errorMsg, onRetry }: { errorMsg: string; onRetry: (
 // ---------------------------------------------------------------------------
 export default function Dashboard() {
   const toast = useToast();
+  const navigate = useNavigate();
   const initialMetrics = React.useMemo(readDashboardCache, []);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(initialMetrics);
   const [loading, setLoading] = useState(!initialMetrics);
@@ -200,13 +207,13 @@ export default function Dashboard() {
   const load = async (force = false) => {
     if (force) {
       setSyncing(true);
-      spreadsheetService.clearCache();
+      dataService.clearCache();
     }
     if (!metrics) setLoading(true);
     setErrorMsg(null);
     setIsPegawaiSetupNeeded(false);
     try {
-      const data = await spreadsheetService.getDashboardMetrics();
+      const data = await dataService.getDashboardMetrics();
       setMetrics(data);
       writeDashboardCache(data);
       if (force) toast.success("Sinkronisasi Berhasil", "Seluruh informasi Dashboard telah diperbarui dari data aktif dan dihitung ulang.");
@@ -218,8 +225,8 @@ export default function Dashboard() {
         // Tetap fetch metrik aset saja (tanpa pegawai) agar dashboard partial bisa tampil
         try {
           const [vehicles, equipment] = await Promise.all([
-            spreadsheetService.getVehicles(),
-            spreadsheetService.getEquipment(),
+            dataService.getVehicles(),
+            dataService.getEquipment(),
           ]);
           setMetrics({
             totalPegawai: 0, pegawaiAktif: 0, pegawaiPensiun: 0,
@@ -231,7 +238,7 @@ export default function Dashboard() {
             totalPeminjaman: 0, totalPemeliharaan: 0,
             totalPagu: 0, totalRealisasi: 0,
             persenRealisasi: 0,
-            lastUpdated: spreadsheetService.getLastUpdated(),
+            lastUpdated: dataService.getLastUpdated(),
           });
         } catch { /* silently ignore partial load errors */ }
       } else {
@@ -411,7 +418,7 @@ export default function Dashboard() {
                   <CardContent className="pb-4">
                     {metrics.kelengkapanFieldKosong && metrics.kelengkapanFieldKosong.length > 0 ? (
                       <>
-                        <HorizontalBarChart data={metrics.kelengkapanFieldKosong.slice(0, 6)} labelClass="w-36" />
+                        <HorizontalBarChart data={metrics.kelengkapanFieldKosong.slice(0, 6)} labelClass="w-36" onClickBar={(item) => navigate(`/pegawai?kelengkapan=belum&kriteria=${encodeURIComponent(item.name)}`)} colorStart={1} />
                         <p className="text-[11px] text-gray-400 mt-3">
                           Kriteria: NIP 18 digit, Jabatan, Golongan, TMT Golongan, Tanggal Lahir, Foto, Email, Kontak,
                           serta relasi nama pegawai ↔ aset yang sudah selaras.
@@ -445,27 +452,36 @@ export default function Dashboard() {
                 <CardContent className="pb-5 min-h-[250px] flex items-center justify-center">
                   {metrics.distribusiGolongan && metrics.distribusiGolongan.length > 0 ? (
                     <div className="w-full grid grid-cols-1 sm:grid-cols-[minmax(210px,1fr)_minmax(140px,auto)] xl:grid-cols-1 2xl:grid-cols-[minmax(210px,1fr)_minmax(140px,auto)] items-center justify-center gap-5">
-                      <div className="w-[210px] h-[210px] relative shrink-0 mx-auto">
+                      <div className="w-[210px] h-[210px] relative shrink-0 mx-auto mt-2">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
-                            <Pie data={metrics.distribusiGolongan} cx="50%" cy="50%" innerRadius={57} outerRadius={82} paddingAngle={3} dataKey="value" stroke="none">
-                              {metrics.distribusiGolongan.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                            <Pie 
+                              data={metrics.distribusiGolongan} cx="50%" cy="50%" innerRadius={57} outerRadius={82} paddingAngle={3} dataKey="value" stroke="none"
+                              onClick={(e) => e && e.name && navigate(`/pegawai?golongan=${encodeURIComponent(e.name)}`)}
+                              style={{ cursor: "pointer" }}
+                            >
+                              {metrics.distribusiGolongan.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} className="hover:opacity-75 transition-opacity" />)}
                             </Pie>
                             <Tooltip formatter={(v) => [`${v} orang`, ""]} />
                           </PieChart>
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                          <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{metrics.totalPegawai}</span>
-                          <span className="text-[10px] text-gray-500">Pegawai</span>
+                          <span className="text-3xl font-black text-gray-900 dark:text-gray-100 tracking-tight">{metrics.totalPegawai}</span>
+                          <span className="text-xs text-gray-500 font-medium mt-0.5">Pegawai</span>
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 gap-2.5 w-full min-w-0">
+                      <div className="w-full grid grid-cols-2 sm:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-1 gap-2.5 min-w-0">
                         {metrics.distribusiGolongan.map((item, i) => (
-                          <div key={item.name} className="flex items-center gap-1.5">
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                            <span className="text-xs text-gray-600 dark:text-gray-400 truncate">Gol. {item.name}</span>
-                            <span className="text-xs font-bold text-gray-900 dark:text-gray-100">{item.value}</span>
-                          </div>
+                          <button
+                            key={item.name}
+                            onClick={() => navigate(`/pegawai?golongan=${encodeURIComponent(item.name)}`)}
+                            className="flex items-center gap-2 text-left rounded-lg px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
+                            title={`Lihat pegawai Golongan ${item.name}`}
+                          >
+                            <span className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <span className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">Gol. {item.name}</span>
+                            <span className="text-sm font-bold text-gray-900 dark:text-gray-100 ml-auto">{item.value}</span>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -476,12 +492,16 @@ export default function Dashboard() {
               {/* Pendidikan */}
               <Card className="h-full min-h-[310px]">
                 <CardHeader className="pb-2"><div className="flex items-center gap-2"><GraduationCap size={16} className="text-green-500" /><CardTitle className="text-base font-extrabold">Distribusi Pendidikan</CardTitle></div></CardHeader>
-                <CardContent className="pb-5 min-h-[250px] flex flex-col justify-center"><HorizontalBarChart data={(metrics.distribusiPendidikan || []).slice(0, 9)} labelClass="w-24" /></CardContent>
+                <CardContent className="pb-5 min-h-[250px] flex flex-col justify-center">
+                  <HorizontalBarChart data={(metrics.distribusiPendidikan || []).slice(0, 9)} labelClass="w-24" onClickBar={(item) => navigate(`/pegawai?pendidikan=${encodeURIComponent(item.name)}`)} colorStart={2} />
+                </CardContent>
               </Card>
               {/* Masa Kerja */}
               <Card className="h-full min-h-[310px]">
                 <CardHeader className="pb-2"><div className="flex items-center gap-2"><Timer size={16} className="text-orange-500" /><CardTitle className="text-base font-extrabold">Distribusi Masa Kerja</CardTitle></div></CardHeader>
-                <CardContent className="pb-5 min-h-[250px] flex flex-col"><HorizontalBarChart data={metrics.distribusiMasaKerja || []} labelClass="w-20 sm:w-24" fillHeight /></CardContent>
+                <CardContent className="pb-5 min-h-[250px] flex flex-col">
+                  <HorizontalBarChart data={metrics.distribusiMasaKerja || []} labelClass="w-20 sm:w-24" fillHeight onClickBar={(item) => navigate(`/pegawai?masaKerja=${encodeURIComponent(item.name)}`)} colorStart={4} />
+                </CardContent>
               </Card>
             </motion.div>
           </section>

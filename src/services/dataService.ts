@@ -18,7 +18,7 @@ const inFlight = new Map<string, Promise<any[]>>();
 function cacheTableRows(table: string, rows: any[], timestamp = Date.now()) {
   if (typeof sessionStorage === "undefined") return;
   sessionStorage.setItem(`supabase_v2_backend_${table}`, JSON.stringify({ timestamp, data: rows || [] }));
-  sessionStorage.setItem("sheet_last_updated", new Date(timestamp).toISOString());
+  sessionStorage.setItem("data_last_updated", new Date(timestamp).toISOString());
 }
 
 async function primeDashboardSnapshot() {
@@ -47,25 +47,25 @@ async function primeDashboardSnapshot() {
 // ---------------------------------------------------------------------------
 // Core fetch — Now using Supabase!
 // ---------------------------------------------------------------------------
-async function fetchFromSheet(
-  sheetName: string,
+async function fetchTableData(
+  tableName: string,
   options: { allowDeferredPhotos?: boolean } = {},
 ): Promise<any[]> {
-  if (DEFERRED_V2.has(sheetName)) return [];
-  const cacheKey = `supabase_v2_backend_${sheetName}`;
+  if (DEFERRED_V2.has(tableName)) return [];
+  const cacheKey = `supabase_v2_backend_${tableName}`;
 
   try {
     const cached = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(cacheKey) : null;
     if (cached) {
       const parsed = JSON.parse(cached);
       const fresh = Date.now() - parsed.timestamp < CACHE_EXPIRY;
-      const photoUrlsDeferred = sheetName === "pegawai"
+      const photoUrlsDeferred = tableName === "pegawai"
         && Array.isArray(parsed.data)
         && parsed.data.some((row: any) => row?._photo_urls_deferred === true);
       if (fresh && (!photoUrlsDeferred || options.allowDeferredPhotos)) return parsed.data;
     }
 
-    const tableName = sheetName;
+    const tableName = tableName;
     const filters: Array<{ column: string; op: "eq"; value: string }> = [];
 
     let request = inFlight.get(cacheKey);
@@ -78,7 +78,7 @@ async function fetchFromSheet(
     try {
       if (typeof sessionStorage !== "undefined") {
         sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: resultData }));
-        sessionStorage.setItem("sheet_last_updated", new Date().toISOString());
+        sessionStorage.setItem("data_last_updated", new Date().toISOString());
       }
     } catch (e) {
       console.warn("Storage full", e);
@@ -86,7 +86,7 @@ async function fetchFromSheet(
 
     return normalizeData(resultData || []);
   } catch (error: any) {
-    console.error(`[SIKANDA] ❌ Gagal fetch data ${sheetName}:`, error.message);
+    console.error(`[SIKANDA] ❌ Gagal fetch data ${tableName}:`, error.message);
     throw error;
   }
 }
@@ -250,20 +250,20 @@ function buildMasaKerjaDistribusi(list: any[]): DistribusiItem[] {
 // ---------------------------------------------------------------------------
 // Main service object
 // ---------------------------------------------------------------------------
-export const spreadsheetService = {
+export const dataService = {
   clearCache() {
     Object.keys(sessionStorage).forEach((key) => {
-      if (key.startsWith("sheet_v5_") || key.startsWith("supabase_v1_") || key.startsWith("supabase_v2_backend_")) {
+      if (key.startsWith("data_v5_") || key.startsWith("supabase_v1_") || key.startsWith("supabase_v2_backend_")) {
         sessionStorage.removeItem(key);
       }
     });
     sessionStorage.removeItem("sikanda_dashboard_metrics_v1113");
-    sessionStorage.removeItem("sheet_last_updated");
+    sessionStorage.removeItem("data_last_updated");
     if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("sikanda:data-changed"));
   },
 
   getLastUpdated() {
-    return typeof sessionStorage !== "undefined" ? sessionStorage.getItem("sheet_last_updated") : null;
+    return typeof sessionStorage !== "undefined" ? sessionStorage.getItem("data_last_updated") : null;
   },
 
   
@@ -343,7 +343,7 @@ export const spreadsheetService = {
 
   async getSystemSettings(): Promise<{ bup: number; kgbCycle: number; pangkatCycle: number }> {
     try {
-      const rows = await fetchFromSheet("system_config");
+      const rows = await fetchTableData("system_config");
       const values: Record<string, string> = {};
       rows.forEach((r: any) => {
         const key = String(r.key ?? r.config_key ?? '').toUpperCase();
@@ -361,7 +361,7 @@ export const spreadsheetService = {
 
   /** Direktori ringan untuk suggestion/pemetaan nama tanpa menghitung relasi aset. */
   async getEmployeeDirectory() {
-    const rows = await fetchFromSheet("pegawai");
+    const rows = await fetchTableData("pegawai");
     return rows.map((item: any) => {
       const nama = String(item.nama_pegawai || item.nama || item.nama_lengkap || "").trim();
       const aktif = String(item.is_active ?? "TRUE").trim().toUpperCase();
@@ -383,8 +383,8 @@ export const spreadsheetService = {
 
   async getVehicles() {
     const [data, locationRows] = await Promise.all([
-      fetchFromSheet("assets_vehicle"),
-      fetchFromSheet("asset_locations"),
+      fetchTableData("assets_vehicle"),
+      fetchTableData("asset_locations"),
     ]);
     const locationLookup = buildAssetLocationLookup(locationRows, "vehicle");
     return data.map((item: any) => {
@@ -446,8 +446,8 @@ export const spreadsheetService = {
 
   async getEquipment() {
     const [data, locationRows] = await Promise.all([
-      fetchFromSheet("assets_equipment"),
-      fetchFromSheet("asset_locations"),
+      fetchTableData("assets_equipment"),
+      fetchTableData("asset_locations"),
     ]);
     const locationLookup = buildAssetLocationLookup(locationRows, "equipment");
     return data.map((item: any) => {
@@ -492,7 +492,7 @@ export const spreadsheetService = {
   async getMaintenance() { return []; },
   async getEquipmentMaintenance() { return []; },
   async getLoans() { return []; },
-  async getLocations() { return fetchFromSheet("asset_locations"); },
+  async getLocations() { return fetchTableData("asset_locations"); },
 
   async getMaintenanceForecast() { return { avgMonthlyCost: 0, sixMonthTotal: 0, forecastData: [] }; },
 
@@ -502,7 +502,7 @@ export const spreadsheetService = {
   async getPegawai(options: { allowDeferredPhotos?: boolean } = {}) {
     try {
       const [rawPegawai, vehicles, equipment, settings] = await Promise.all([
-        fetchFromSheet("pegawai", options),
+        fetchTableData("pegawai", options),
         this.getVehicles(),
         this.getEquipment(),
         this.getSystemSettings(),

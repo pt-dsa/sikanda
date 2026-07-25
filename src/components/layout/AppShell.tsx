@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from "react";
 import { Navigate, NavLink, Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, CarFront, Wrench, Package, WalletCards, 
@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { GlobalSearch } from "@/components/ui/GlobalSearch";
-import { spreadsheetService } from "@/services/spreadsheetService";
+import { dataService } from "@/services/dataService";
 import { apiService } from "@/services/apiService";
 import { authService, type CaptchaProof } from "@/services/authService";
 import { clearAuthSession, readAuthSession } from "@/lib/authSession";
@@ -19,6 +19,7 @@ import { PegawaiAvatar } from "@/components/ui/PegawaiDetailModal";
 import { useToast } from "@/components/ui/Toast";
 import type { Pegawai } from "@/types";
 import type { NotificationAgendaItem, NotificationFeed } from "@/services/apiService";
+import { beginLoadingTask, completeLoadingTask, failLoadingTask } from "@/lib/loadingProgress";
 
 function birthdayTimeLabel(item: { daysUntil: number }) {
   return item.daysUntil === 0 ? "Hari ini" : item.daysUntil === 1 ? "Besok" : `${item.daysUntil} hari lagi`;
@@ -69,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
     const restore = async () => {
-      spreadsheetService.clearCache();
+      dataService.clearCache();
       setUser(null);
       setLoading(true);
       try {
@@ -92,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const invalidate = () => {
       clearAuthSession();
-      spreadsheetService.clearCache();
+      dataService.clearCache();
       setUser(null);
       setLoading(false);
     };
@@ -102,14 +103,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithPassword: AuthContextValue["loginWithPassword"] = async (params) => {
     setLoading(true);
+    beginLoadingTask("auth", "Memverifikasi akun");
     try {
       const result = await authService.login(params.nip, params.password, params.captcha, params.clientKey);
       if (!result.user) throw new Error("Identitas akun tidak tersedia.");
-      spreadsheetService.clearCache();
+      dataService.clearCache();
       setUser(appUserFromIdentity(result.user));
+      completeLoadingTask("auth", "Login berhasil");
     } catch (e) {
+      failLoadingTask("auth");
       setUser(null);
-      spreadsheetService.clearCache();
+      dataService.clearCache();
       clearAuthSession();
       throw e;
     } finally {
@@ -119,11 +123,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const registerAccount: AuthContextValue["registerAccount"] = async (params) => {
     setLoading(true);
+    beginLoadingTask("auth", "Mendaftarkan akun");
     try {
       const result = await authService.register(params.nip, params.email, params.password, params.captcha, params.clientKey);
       if (result.user) setUser(appUserFromIdentity(result.user));
+      completeLoadingTask("auth", "Registrasi berhasil");
       return { requiresLogin: result.requiresLogin, message: result.message };
     } catch (error) {
+      failLoadingTask("auth");
       setUser(null);
       clearAuthSession();
       throw error;
@@ -135,12 +142,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setUser(null);
     setLoading(true);
-    spreadsheetService.clearCache();
+    dataService.clearCache();
     try {
       await authService.logout();
     } finally {
       clearAuthSession();
-      spreadsheetService.clearCache();
+      dataService.clearCache();
       setLoading(false);
     }
   };
@@ -329,11 +336,46 @@ function BirthdaySection({ items, close }: { items: NotificationFeed["birthdays"
   );
 }
 
-function Topbar({ setMobileSidebarOpen, desktopSidebarOpen, setDesktopSidebarOpen, onEditProfile }: { setMobileSidebarOpen: (v: boolean) => void, desktopSidebarOpen: boolean, setDesktopSidebarOpen: (v: boolean) => void, onEditProfile: () => void }) {
+function Header({ 
+  mobileSidebarOpen, 
+  setMobileSidebarOpen, 
+  desktopSidebarOpen, 
+  setDesktopSidebarOpen, 
+  onEditProfile 
+}: { 
+  mobileSidebarOpen: boolean; 
+  setMobileSidebarOpen: (v: boolean) => void;
+  desktopSidebarOpen: boolean;
+  setDesktopSidebarOpen: (v: boolean) => void;
+  onEditProfile: () => void;
+}) {
   const { user, logout } = useContext(AuthContext);
-  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [feed, setFeed] = useState<NotificationFeed | null>(null);
+
+  const notifRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const previousFeed = useRef<string>("");
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setNotifOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   useEffect(() => {
     async function loadAlerts() {
@@ -355,6 +397,20 @@ function Topbar({ setMobileSidebarOpen, desktopSidebarOpen, setDesktopSidebarOpe
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!feed) return;
+    const feedStr = JSON.stringify({ overdue: feed.overdue, kgb: feed.kgb, bup: feed.bup, birthdays: feed.birthdays });
+    if (previousFeed.current && previousFeed.current !== feedStr) {
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("Informasi Baru - SIKANDA", {
+          body: "Terdapat pembaruan notifikasi kepegawaian terbaru (Agenda / Ulang Tahun).",
+          icon: "/pwa-192x192.png"
+        });
+      }
+    }
+    previousFeed.current = feedStr;
+  }, [feed]);
 
   const notif = feed || { overdue: [], kgb: [], pangkat: [], bup: [], birthdays: [] };
 
@@ -402,7 +458,7 @@ function Topbar({ setMobileSidebarOpen, desktopSidebarOpen, setDesktopSidebarOpe
         <LiveClock />
         
         {/* Notification Bell + panel agenda */}
-        <div className="relative">
+        <div className="relative" ref={notifRef}>
           <button
             onClick={() => setNotifOpen((v) => !v)}
             aria-label="Notifikasi agenda kepegawaian"
@@ -418,7 +474,6 @@ function Topbar({ setMobileSidebarOpen, desktopSidebarOpen, setDesktopSidebarOpe
 
           {notifOpen && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
               <div className={cn(
                 "fixed left-2 right-2 overflow-y-auto bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 z-[70] animate-in fade-in slide-in-from-top-2 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[340px] sm:max-h-[72vh]",
                 user?.role !== "pegawai" ? "top-[7.25rem] max-h-[calc(100dvh-7.75rem)]" : "top-[4.25rem] max-h-[calc(100dvh-4.75rem)]"
@@ -484,7 +539,7 @@ function Topbar({ setMobileSidebarOpen, desktopSidebarOpen, setDesktopSidebarOpe
         </div>
 
         <ThemeToggle />
-        <div className="flex items-center gap-2 sm:gap-3 sm:ml-2 relative">
+        <div className="flex items-center gap-2 sm:gap-3 sm:ml-2 relative" ref={profileRef}>
           <div className="hidden text-right md:block">
             <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{getGreeting()}, {user?.nama}</div>
             <div className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.role}</div>
@@ -504,10 +559,6 @@ function Topbar({ setMobileSidebarOpen, desktopSidebarOpen, setDesktopSidebarOpe
           
           {profileDropdownOpen && (
             <>
-              <div 
-                className="fixed inset-0 z-40" 
-                onClick={() => setProfileDropdownOpen(false)}
-              ></div>
               <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
                 <button 
                   className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex items-center gap-2"
@@ -550,7 +601,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const openOwnProfile = async () => {
     try {
-      const rows = await spreadsheetService.getPegawai();
+      const rows = await dataService.getPegawai();
       const nip = String(user?.nip || "").trim();
       const email = String(user?.email || "").trim().toLowerCase();
       const own = rows.find((p: Pegawai) => (nip && String(p.nip) === nip) || (!nip && email && String(p.email || "").trim().toLowerCase() === email));
@@ -594,7 +645,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         "flex flex-col h-screen transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
         desktopSidebarOpen ? "md:pl-64" : "md:pl-20"
       )}>
-        <Topbar 
+        <Header 
+          mobileSidebarOpen={mobileSidebarOpen}
           setMobileSidebarOpen={setMobileSidebarOpen} 
           desktopSidebarOpen={desktopSidebarOpen}
           setDesktopSidebarOpen={setDesktopSidebarOpen}
@@ -609,7 +661,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               bidangOptions={[]}
               onClose={() => setProfileEmployee(null)}
               onSuccess={() => {
-                spreadsheetService.clearCache();
+                dataService.clearCache();
                 setProfileEmployee(null);
               }}
             />

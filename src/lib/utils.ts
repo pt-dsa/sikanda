@@ -61,7 +61,7 @@ function makeDate(y: number, m: number, d: number): Date | null {
 }
 
 /**
- * Parse tanggal dari berbagai format yang muncul di Google Sheets:
+ * Parse tanggal dari berbagai format (termasuk format legacy):
  *  - Teks bulan Indonesia/Inggris: "13 JUNE 1968", "1 April 2019"
  *  - ISO: "1968-06-13"
  *  - Indonesia numerik: "13-06-1968", "13/06/1968", "03-02-25"

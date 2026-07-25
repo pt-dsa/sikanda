@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useMemo, useRef } from "react";
-import { spreadsheetService } from "@/services/spreadsheetService";
+import { dataService } from "@/services/dataService";
 import { Equipment, Pegawai } from "@/types";
 import { StatusBadge } from "@/components/ui/Badge";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -75,11 +75,11 @@ export default function AlatMesin() {
   // Fungsi muat data di lingkup komponen agar bisa dipanggil ulang
   // (mis. sinkronisasi ulang saat operasi tulis gagal).
   const load = async (force = false) => {
-    if (force) spreadsheetService.clearCache();
+    if (force) dataService.clearCache();
     try {
       const [res, employeeRows] = await Promise.all([
-        spreadsheetService.getEquipment(),
-        spreadsheetService.getEmployeeDirectory(),
+        dataService.getEquipment(),
+        dataService.getEmployeeDirectory(),
       ]);
       setData(res);
       setEmployees(employeeRows as Pegawai[]);
@@ -114,7 +114,7 @@ export default function AlatMesin() {
       confirmClass: "bg-red-600 hover:bg-red-700",
       onConfirm: async () => {
         try {
-          await spreadsheetService.deleteEquipment(id);
+          await dataService.deleteEquipment(id);
           setData(prev => prev.filter(item => item.asset_id !== id));
           setSelectedRows(prev => prev.filter(r => r.asset_id !== id));
           toast.success("Data Dihapus", "Data alat/mesin berhasil dihapus.");
@@ -136,7 +136,7 @@ export default function AlatMesin() {
       onConfirm: async () => {
         try {
           for (const r of selectedRows) {
-            if (r.asset_id) await spreadsheetService.deleteEquipment(r.asset_id);
+            if (r.asset_id) await dataService.deleteEquipment(r.asset_id);
           }
           const idsToDelete = new Set(selectedRows.map(r => r.asset_id));
           setData(prev => prev.filter(item => !idsToDelete.has(item.asset_id)));
@@ -161,7 +161,7 @@ export default function AlatMesin() {
         try {
           // Persistenkan ke basis data — bukan hanya tampilan (anti data semu).
           for (const r of selectedRows) {
-            if (r.asset_id) await spreadsheetService.saveEquipment({ asset_id: r.asset_id, kondisi: newStatus }, false);
+            if (r.asset_id) await dataService.saveEquipment({ asset_id: r.asset_id, kondisi: newStatus }, false);
           }
           const idsToUpdate = new Set(selectedRows.map(r => r.asset_id));
           setData(prev => prev.map(item => idsToUpdate.has(item.asset_id) ? { ...item, kondisi: newStatus } : item));
@@ -255,7 +255,7 @@ export default function AlatMesin() {
     }
     setIsSaving(true);
     try {
-      const result = await spreadsheetService.saveEquipment(payload, isNew);
+      const result = await dataService.saveEquipment(payload, isNew);
       if (photoFile) {
         try {
           const encoded = await fileToBase64(photoFile);
@@ -285,7 +285,7 @@ export default function AlatMesin() {
       setFormData({});
       setPhotoFile(null);
       setAttachmentFiles([]);
-      spreadsheetService.clearCache();
+      dataService.clearCache();
       await load();
       if (failedAttachments.length) toast.warning("Data Tersimpan, Sebagian Lampiran Gagal", failedAttachments.join(" · "));
       else toast.success(isNew ? "Data Inventaris Berhasil Ditambahkan" : "Perubahan Data Berhasil Disimpan", isNew ? "Data inventaris, koordinat, dan media telah tersimpan." : "Perubahan data inventaris telah tersimpan dan tervalidasi.");
@@ -554,6 +554,7 @@ export default function AlatMesin() {
             placeholder="Cari barang, kode, spesifikasi..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onClear={() => setSearch("")}
           />
           <select 
             className="w-full rounded-full border border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
@@ -589,7 +590,7 @@ export default function AlatMesin() {
         existing={data}
         onClose={() => setShowImport(false)}
         onError={(message) => toast.error("Import Gagal", message)}
-        onImported={async (message) => { setShowImport(false); spreadsheetService.clearCache(); await load(true); toast.success("Import Berhasil", message); }}
+        onImported={async (message) => { setShowImport(false); dataService.clearCache(); await load(true); toast.success("Import Berhasil", message); }}
       />
 
       {false && selectedRows.length > 0 && (

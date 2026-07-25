@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import type { Pegawai } from "@/types";
-import { Search, UserRound } from "lucide-react";
+import { Search, UserRound, X } from "lucide-react";
 
 interface EmployeeAutocompleteProps {
   label: string;
@@ -75,8 +75,23 @@ export function EmployeeAutocomplete({
             setOpen(true);
           }}
           placeholder={placeholder}
-          className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-transparent text-sm outline-none focus:ring-2 focus:ring-blue-500/40"
+          className="w-full pl-9 pr-10 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-transparent text-sm outline-none focus:ring-2 focus:ring-blue-500/40"
         />
+        {query && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onChange("");
+              onSelect?.(null);
+              setOpen(false);
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            aria-label="Hapus"
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
       {selected && (
         <p className="text-[11px] text-emerald-600 dark:text-emerald-400 truncate">

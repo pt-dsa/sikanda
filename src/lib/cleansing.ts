@@ -27,7 +27,7 @@ export const ASSET_SHEET_LABEL: Record<AssetSheetName, string> = {
 // Fuzzy name matching — Levenshtein distance based similarity (0..1).
 // Dipakai khusus untuk mendeteksi kemiripan nama pegawai vs holder_name aset
 // (typo, beda spasi, beda urutan gelar) dengan akurasi terukur, BUKAN sekadar
-// pencocokan token sederhana seperti exactKey/fuzzyKey di spreadsheetService.
+// pencocokan token sederhana seperti exactKey/fuzzyKey di dataService.
 // ---------------------------------------------------------------------------
 function levenshtein(a: string, b: string): number {
   const m = a.length, n = b.length;
@@ -87,6 +87,7 @@ export interface AssetNameIssue {
   currentNip?: string;
   currentRaw?: string;
   reason?: "missing_nip" | "name_mismatch" | "employee_missing" | "unmatched";
+  tahun?: string;
 }
 
 export interface AssetEmployeeSource {
@@ -97,6 +98,7 @@ export interface AssetEmployeeSource {
   holderNip?: string;
   holderRaw?: string;
   holderStatus?: string;
+  tahun?: string;
 }
 
 /**
@@ -169,6 +171,7 @@ export function scanAssetEmployeeLinks(
       similarity,
       confidence: candidate ? (similarity >= SIMILARITY_HIGH ? "tinggi" : "sedang") : "belum",
       reason,
+      tahun: asset.tahun,
     }];
   }).sort((left, right) => {
     if (left.confidence === "belum" && right.confidence !== "belum") return 1;

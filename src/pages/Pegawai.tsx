@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useContext } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { spreadsheetService } from "@/services/spreadsheetService";
+import { dataService } from "@/services/dataService";
 import { apiService } from "@/services/apiService";
 import { AuthContext } from "@/components/layout/AppShell";
 import { can, canEditPegawaiRow } from "@/lib/rbac";
@@ -110,6 +110,9 @@ export default function PegawaiPage() {
   const [filterIncomplete, setFilterIncomplete] = useState(false);
   // PENGUATAN KEPEGAWAIAN: filter berdasar kelengkapan 9 kriteria (core value).
   const [filterKelengkapan, setFilterKelengkapan] = useState<"all" | "lengkap" | "belum">("all");
+  const [filterKriteria, setFilterKriteria] = useState("all");
+  const [filterPendidikan, setFilterPendidikan] = useState("all");
+  const [filterMasaKerja, setFilterMasaKerja] = useState("all");
   const [selectedPegawai, setSelectedPegawai] = useState<Pegawai | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -139,7 +142,7 @@ export default function PegawaiPage() {
       onConfirm: async () => {
         try {
           await apiService.deletePegawai(String(p.nip));
-          spreadsheetService.clearCache();
+          dataService.clearCache();
           setSelectedPegawai(null);
           await load(true);
           toast.success("Berhasil", `Pegawai "${p.nama}" berhasil dinonaktifkan.`);
@@ -150,18 +153,45 @@ export default function PegawaiPage() {
     });
   }
 
+  function handleHardDelete(p: Pegawai) {
+    setConfirmState({
+      open: true,
+      title: "Hapus Permanen Pegawai",
+      message: (
+        <>
+          <strong>PERINGATAN !</strong> Hapus permanen "{p.nama}" (NIP {p.nip}) dari database?
+          <br /><br />
+          Semua data, foto, riwayat aset, dan kredensial login pegawai ini akan dihapus. Tindakan ini <strong>TIDAK DAPAT DIBATALKAN</strong>.
+        </>
+      ),
+      confirmLabel: "Ya, Hapus Permanen",
+      confirmClass: "bg-red-700 hover:bg-red-800",
+      onConfirm: async () => {
+        try {
+          await apiService.deletePegawai(String(p.nip), { hard: true });
+          dataService.clearCache();
+          setSelectedPegawai(null);
+          await load(true);
+          toast.success("Berhasil", `Pegawai "${p.nama}" beserta seluruh jejak datanya telah dihapus permanen.`);
+        } catch (err: any) {
+          toast.error("Gagal", err?.message || "Gagal menghapus pegawai secara permanen.");
+        }
+      },
+    });
+  }
+
   async function load(force = false) {
     if (force) {
       setIsRefreshing(true);
-      spreadsheetService.clearCache();
+      dataService.clearCache();
     } else {
       setLoading(true);
     }
     setErrorMsg(null);
     try {
-      const result = await spreadsheetService.getPegawai();
+      const result = await dataService.getPegawai();
       setData(result);
-      setLastSync(spreadsheetService.getLastUpdated());
+      setLastSync(dataService.getLastUpdated());
 
       // Pindai relasi fuzzy nama ↔ aset untuk kolom Kelengkapan (data aset
       // sudah ter-cache oleh getPegawai — panggilan ini murah). Kegagalan
@@ -169,8 +199,8 @@ export default function PegawaiPage() {
       // berdasarkan match_quality saja.
       try {
         const [vehicles, equipment] = await Promise.all([
-          spreadsheetService.getVehicles(),
-          spreadsheetService.getEquipment(),
+          dataService.getVehicles(),
+          dataService.getEquipment(),
         ]);
         const unified = buildUnifiedAssets(vehicles, equipment);
         setFuzzyNipSet(buildFuzzyNipSet(result as Pegawai[], unified));
@@ -209,6 +239,15 @@ export default function PegawaiPage() {
     // Deep-link KPI Kelengkapan Dashboard → /pegawai?kelengkapan=lengkap|belum
     const k = (searchParams.get("kelengkapan") || "").toLowerCase();
     if (k === "lengkap" || k === "belum") setFilterKelengkapan(k as any);
+    const krit = searchParams.get("kriteria");
+    if (krit) setFilterKriteria(krit);
+    // Deep-link Golongan, Pendidikan, Masa Kerja dari Chart Dashboard
+    const gol = searchParams.get("golongan");
+    if (gol) setFilterGolongan(gol);
+    const pend = searchParams.get("pendidikan");
+    if (pend) setFilterPendidikan(pend);
+    const mk = searchParams.get("masaKerja");
+    if (mk) setFilterMasaKerja(mk);
   }, [searchParams]);
 
   // Golongan level options for filter
@@ -249,13 +288,39 @@ export default function PegawaiPage() {
 
       // Filter kelengkapan 9 kriteria — memakai definisi bersama hitungKelengkapan
       // agar angka filter SELALU identik dengan banner & KPI Dashboard.
+      const kRes = hitungKelengkapan(p, fuzzyNipSet);
       const matchKelengkapan =
         filterKelengkapan === "all" ||
-        (filterKelengkapan === "lengkap") === hitungKelengkapan(p, fuzzyNipSet).lengkap;
+        (filterKelengkapan === "lengkap") === kRes.lengkap;
+      const matchKriteria = filterKriteria === "all" || kRes.missing.includes(filterKriteria);
 
-      return matchSearch && matchStatus && matchBidang && matchGolongan && matchMatch && matchAssetPresence && matchIncomplete && matchKelengkapan;
+      // Filter Pendidikan (mengikuti logika Dashboard: buildPendidikanDistribusi)
+      let matchPendidikan = true;
+      if (filterPendidikan !== "all") {
+        const LABEL: Record<string, string> = {
+          "STRATA II": "S-2", "STRATA I": "S-1",
+          "DIPLOMA IV": "D-IV", "DIPLOMA III": "D-III",
+          "SEKOLAH LANJUTAN TINGKAT ATAS": "SLTA",
+        };
+        const raw = String(p.tingkat || "").trim().toUpperCase();
+        const pLabel = LABEL[raw] || (raw || "Lainnya");
+        matchPendidikan = pLabel === filterPendidikan;
+      }
+
+      // Filter Masa Kerja (mengikuti logika Dashboard: buildMasaKerjaDistribusi)
+      let matchMasaKerja = true;
+      if (filterMasaKerja !== "all") {
+        const y = Number(p.masa_kerja_tahun) || 0;
+        let mk = "20+ Thn";
+        if (y < 5) mk = "0–5 Thn";
+        else if (y < 10) mk = "5–10 Thn";
+        else if (y < 20) mk = "10–20 Thn";
+        matchMasaKerja = mk === filterMasaKerja;
+      }
+
+      return matchSearch && matchStatus && matchBidang && matchGolongan && matchMatch && matchAssetPresence && matchIncomplete && matchKelengkapan && matchKriteria && matchPendidikan && matchMasaKerja;
     }).sort((a, b) => (a.nama || "").localeCompare(b.nama || ""));
-  }, [data, searchTerm, filterStatus, filterBidang, filterGolongan, filterMatch, filterAssetPresence, filterIncomplete, filterKelengkapan, fuzzyNipSet]);
+  }, [data, searchTerm, filterStatus, filterBidang, filterGolongan, filterMatch, filterAssetPresence, filterIncomplete, filterKelengkapan, filterKriteria, filterPendidikan, filterMasaKerja, fuzzyNipSet]);
 
   // Ringkasan kelengkapan (untuk kartu kecil di banner): dihitung dari SEMUA
   // data (bukan hasil filter). hitungKelengkapan murah (9 cek string per
@@ -380,8 +445,17 @@ export default function PegawaiPage() {
               placeholder="Cari NIP, Nama, Jabatan..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-10 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                aria-label="Hapus kata kunci pencarian"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
           {can(user?.role, "pegawai.edit.any") && (
             <button
@@ -747,6 +821,11 @@ export default function PegawaiPage() {
             onDelete={
               can(user?.role, "pegawai.delete")
                 ? () => handleDelete(selectedPegawai)
+                : undefined
+            }
+            onHardDelete={
+              can(user?.role, "pegawai.delete.hard") || user?.role === "admin" || user?.role === "pimpinan"
+                ? () => handleHardDelete(selectedPegawai)
                 : undefined
             }
           />

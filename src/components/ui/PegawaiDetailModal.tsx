@@ -191,6 +191,7 @@ export function PegawaiDetailModal({
   onSelectAsset,
   onEdit,
   onDelete,
+  onHardDelete,
   onVerifyMatch,
 }: {
   pegawai: Pegawai;
@@ -198,7 +199,8 @@ export function PegawaiDetailModal({
   onSelectAsset: (a: any) => void;
   onEdit?: () => void;
   onDelete?: () => void;
-  onVerifyMatch?: () => void;
+  onHardDelete?: () => void;
+  onVerifyMatch?: (type: "vehicle" | "equipment", id: string) => void;
 }) {
   const { user } = useContext(AuthContext);
   const [openSection, setOpenSection] = useState<string>("biodata");
@@ -309,10 +311,20 @@ export function PegawaiDetailModal({
               {onDelete && (
                 <button
                   onClick={onDelete}
+                  className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 rounded-xl transition-colors border border-orange-200 dark:border-orange-800/50"
+                >
+                  <Trash2 size={14} />
+                  Nonaktifkan Pegawai
+                </button>
+              )}
+
+              {onHardDelete && (
+                <button
+                  onClick={onHardDelete}
                   className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-900/30 dark:hover:bg-red-900/50 rounded-xl transition-colors border border-red-200 dark:border-red-800/50"
                 >
                   <Trash2 size={14} />
-                  Hapus (Nonaktifkan)
+                  Hapus Permanen
                 </button>
               )}
 

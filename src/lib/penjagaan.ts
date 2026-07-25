@@ -2,7 +2,7 @@
 // SIKANDA — MODUL BUKU PENJAGAAN (sumber tunggal perhitungan tenggat kepegawaian)
 // ---------------------------------------------------------------------------
 // Modul ini dipakai bersama oleh:
-//   • spreadsheetService.ts  → menghitung tgl_kgb / tgl_pangkat / tgl_pensiun
+//   • dataService.ts  → menghitung tgl_kgb / tgl_pangkat / tgl_pensiun
 //   • halaman BukuPenjagaan.tsx → membangun daftar agenda + bucket + ekspor
 //   • (tidak langsung) Dashboard & lonceng AppShell konsumsi field tgl_* yang
 //     dihitung service via fungsi DI SINI, sehingga TIDAK ADA perhitungan ganda

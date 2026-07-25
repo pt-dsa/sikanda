@@ -31,8 +31,8 @@ export const apiService = {
   savePegawai: async (data: Partial<Pegawai>, isNew: boolean) =>
     callBackend<{ ok: true; mode?: string; nip?: string }>({ action: "pegawai_save", data, isNew }),
 
-  deletePegawai: async (nip: string) =>
-    callBackend<{ ok: true; nip: string }>({ action: "pegawai_delete", nip }),
+  deletePegawai: async (nip: string, options?: { hard?: boolean }) =>
+    callBackend<{ ok: true; nip: string }>({ action: "pegawai_delete", nip, hard: options?.hard }),
 
   saveAsset: async (table: "assets_vehicle" | "assets_equipment", data: Record<string, any>, isNew: boolean) =>
     callBackend<{ ok: true; mode: string; asset_id: string }>({ action: "asset_save", table, data, isNew }),

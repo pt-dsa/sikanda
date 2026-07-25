@@ -144,7 +144,7 @@ var COLUMN_ALIASES = {
 };
 
 function doGet() {
-  return json_({ ok: true, service: 'SIKANDA', version: '1.1.16-production', time: new Date().toISOString() });
+  return json_({ ok: true, service: 'SIKANDA', time: new Date().toISOString() });
 }
 
 /**
@@ -255,7 +255,7 @@ function doPost(e) {
         return json_(savePegawai_(actor, body.data || {}, !!body.isNew));
       case 'pegawai_delete':
         requireManager_(actor);
-        return json_(deletePegawai_(actor, String(body.nip || '')));
+        return json_(deletePegawai_(actor, String(body.nip || ''), !!body.hard));
       case 'asset_save':
         requireManager_(actor);
         return json_(saveAsset_(actor, String(body.table || ''), body.data || {}, !!body.isNew));
@@ -686,13 +686,17 @@ function authLogin_(body) {
     return { ok: true, session: authSessionPayload_(grant), user: whoamiPayload_(actor) };
   } catch (err) {
     console.warn('[SIKANDA][Auth] Login ditolak untuk hash NIP ' + authRateKey_('log', nip).substring(10, 22) + ': ' + err.message);
-    throw publicError_(err.isSupabaseError ? err.message : err.message || 'NIP atau sandi tidak sesuai.');
+    // Selalu kembalikan pesan generik agar tidak membocorkan detail internal
+    throw publicError_('NIP atau sandi tidak sesuai. Hubungi Administrator/Pimpinan jika lupa password.');
   }
 }
 
 function authRefresh_(body) {
   var refreshToken = String(body.refreshToken || '');
   if (refreshToken.length < 5 || refreshToken.length > 4096) throw publicError_('Sesi tidak valid. Silakan masuk kembali.');
+  // Rate limiting refresh token: maks 30 refresh per IP/klien per 10 menit
+  var clientKey = normalizedClientKey_(body.clientKey || (refreshToken.substring(0, 32) + '_refresh'));
+  enforceAuthRateLimit_('refresh-client', clientKey, 30, AUTH_RATE_LIMIT_SECONDS);
   try {
     var grant = authRefreshGrant_(refreshToken);
     var info = verifySupabaseToken_(String(grant.access_token || ''));
@@ -1091,24 +1095,6 @@ function filterQuery_(table, filters) {
   return out;
 }
 
-function maskSensitiveDataServer_(rows, currentUserNip) {
-  if (!rows || !Array.isArray(rows)) return rows;
-  return rows.map(function(row) {
-    if (row.nip && String(row.nip) === String(currentUserNip)) return row;
-    var maskedRow = Object.assign({}, row);
-    if (maskedRow.nip && typeof maskedRow.nip === 'string') {
-      maskedRow.nip = maskedRow.nip.substring(0, 4) + 'xxxx' + '*'.repeat(Math.max(0, maskedRow.nip.length - 8));
-    }
-    if (maskedRow.kontak && typeof maskedRow.kontak === 'string') {
-      maskedRow.kontak = maskedRow.kontak.substring(0, 3) + 'xxx-xxxx-' + maskedRow.kontak.slice(-3);
-    }
-    if (maskedRow.tgl_lahir) {
-      maskedRow.tgl_lahir = 'XXXX-XX-XX';
-    }
-    return maskedRow;
-  });
-}
-
 function selectForActor_(actor, table, filters, options) {
   table = String(table || '').trim();
   if (DEFERRED_V2_TABLES.indexOf(table) !== -1) return [];
@@ -1123,10 +1109,6 @@ function selectForActor_(actor, table, filters, options) {
     // pembuatan signed URL pada jalur tersebut memangkas waktu respons tanpa
     // mengubah otorisasi atau isi data.
     if (!(options && options.skipPhotoUrls)) hydrateEmployeePhotoUrls_(rows);
-    // Masking data for pegawai role to prevent data leakage in Network Tab
-    if (actor && actor.role === 'pegawai') {
-      rows = maskSensitiveDataServer_(rows, actor.nip);
-    }
   }
   if ((table === 'assets_vehicle' || table === 'assets_equipment') && !(options && options.skipPhotoUrls)) {
     hydrateAssetPhotoUrls_(rows);
@@ -1487,15 +1469,22 @@ function normalizePegawaiDates_(data, allowed) {
   }
 }
 
-function deletePegawai_(actor, nip) {
+function deletePegawai_(actor, nip, isHardDelete) {
   nip = String(nip || '').trim();
   if (!nip) throw publicError_('NIP wajib diisi.');
-  if (tableColumns_('pegawai').indexOf('is_active') === -1) throw publicError_('Fitur penonaktifan data belum siap. Silakan hubungi administrator.');
-  requireMutationRows_(supaRequest_('patch', 'pegawai?nip=eq.' + encodeURIComponent(nip), {
-    is_active: false, updated_at: new Date().toISOString(), updated_by: actor.email
-  }, 'return=representation'), 'pegawai dengan NIP ' + nip);
-  auditLog_(actor, 'pegawai.deactivate', 'pegawai', nip, {});
-  return { ok: true, nip: nip };
+  
+  if (isHardDelete) {
+    requireMutationRows_(supaRequest_('delete', 'pegawai?nip=eq.' + encodeURIComponent(nip), null, 'return=representation'), 'pegawai dengan NIP ' + nip);
+    auditLog_(actor, 'pegawai.delete.hard', 'pegawai', nip, {});
+    return { ok: true, nip: nip, hard_deleted: true };
+  } else {
+    if (tableColumns_('pegawai').indexOf('is_active') === -1) throw publicError_('Fitur penonaktifan data belum siap. Silakan hubungi administrator.');
+    requireMutationRows_(supaRequest_('patch', 'pegawai?nip=eq.' + encodeURIComponent(nip), {
+      is_active: false, updated_at: new Date().toISOString(), updated_by: actor.email
+    }, 'return=representation'), 'pegawai dengan NIP ' + nip);
+    auditLog_(actor, 'pegawai.deactivate', 'pegawai', nip, {});
+    return { ok: true, nip: nip, deactivated: true };
+  }
 }
 
 function normalizeAssetTable_(table) {
@@ -2069,9 +2058,10 @@ function childFolder_(parent, name) {
 function employeeNipByName_(name) {
   var expected = normalizeName_(name);
   if (!expected) return '';
-  var rows = supaGet_('pegawai?select=*&limit=5000');
+  // Hanya muat kolom yang diperlukan — jangan select=* karena memuat data sensitif
+  var rows = supaGet_('pegawai?select=nip,nama,is_active&limit=5000');
   for (var i = 0; i < rows.length; i++) {
-    if (isActive_(rows[i].is_active) && normalizeName_(rows[i].nama || rows[i].nama_pegawai || '') === expected) {
+    if (isActive_(rows[i].is_active) && normalizeName_(rows[i].nama || '') === expected) {
       return String(rows[i].nip || '').trim();
     }
   }
@@ -2755,12 +2745,21 @@ function employeeMentionAnswer_(actor, normalizedQuestion) {
   }
   if (!best) return '';
   var row = best.row;
+  // NIP hanya ditampilkan untuk Manager (admin/pimpinan). Pegawai melihat inisial NIP
+  var isManagerActor = actor && isManager_(actor);
+  var nipDisplay = isManagerActor
+    ? escapeMarkdown_(row.nip || '-')
+    : (row.nip ? row.nip.substring(0, 8) + '**********' : '-');
+  // Tanggal lahir hanya untuk Manager
+  var tglLahirLine = isManagerActor
+    ? '\n- Tanggal lahir: **' + escapeMarkdown_(row.tgl_lahir || row.tanggal_lahir || '-') + '**'
+    : '';
   return 'Berikut data yang saya temukan untuk **' + escapeMarkdown_(row.nama || row.nama_pegawai || '-') + '**:\n\n' +
-    '- NIP: **' + escapeMarkdown_(row.nip || '-') + '**\n' +
+    '- NIP: **' + nipDisplay + '**\n' +
     '- Status: **' + escapeMarkdown_(row.status || '-') + '**\n' +
     '- Jabatan: **' + escapeMarkdown_(row.jabatan || '-') + '**\n' +
     '- Unit kerja: **' + escapeMarkdown_(row.unit_kerja || '-') + '**\n' +
-    '- Golongan: **' + escapeMarkdown_(row.golongan || '-') + '**';
+    '- Golongan: **' + escapeMarkdown_(row.golongan || '-') + '**' + tglLahirLine;
 }
 
 function birthdayAnswer_(actor, daysAhead, normalizedQuestion) {
@@ -2833,7 +2832,11 @@ function agendaAnswer_(actor, code, label, months) {
 
   var limit = Math.min(rows.length, 50);
   var lines = ['Saya sudah cek. Ada **' + rows.length + ' pegawai** dengan agenda ' + label + ' dalam ' + months + ' bulan ke depan:'];
-  for (var r = 0; r < limit; r++) lines.push((r + 1) + '. **' + rows[r].nama + '** — NIP ' + rows[r].nip + ' — ' + formatIndo_(rows[r].date));
+  for (var r = 0; r < limit; r++) {
+    // NIP hanya ditampilkan untuk actor Manager; pegawai hanya melihat nama dan tanggal
+    var nipInfo = actor && isManager_(actor) ? ' — NIP ' + rows[r].nip : '';
+    lines.push((r + 1) + '. **' + rows[r].nama + '**' + nipInfo + ' — ' + formatIndo_(rows[r].date));
+  }
   if (rows.length > limit) lines.push('\nDaftar dibatasi 50 nama. Gunakan Buku Penjagaan untuk melihat seluruh hasil.');
   return lines.join('\n');
 }

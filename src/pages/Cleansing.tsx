@@ -6,7 +6,7 @@ import {
   ShieldAlert, Info, ChevronDown, ChevronUp, Zap, Check,
   UserCheck2, ExternalLink, Wrench,
 } from "lucide-react";
-import { spreadsheetService } from "@/services/spreadsheetService";
+import { dataService } from "@/services/dataService";
 import { apiService } from "@/services/apiService";
 import { AuthContext } from "@/components/layout/AppShell";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -24,6 +24,7 @@ import { buildUnifiedAssets } from "@/lib/kelengkapan";
 import type { Pegawai } from "@/types";
 import { scanMissingAssetConditions, type MissingAssetConditionIssue } from "@/lib/assetCondition";
 import { EmployeeAutocomplete } from "@/components/ui/EmployeeAutocomplete";
+import { AssetDetailModal } from "@/components/ui/AssetDetailModal";
 
 // ---------------------------------------------------------------------------
 // Halaman Cleansing (Tahap 6)
@@ -63,6 +64,11 @@ export default function Cleansing() {
   const [confirmState, setConfirmState] = useState<ConfirmState>(CONFIRM_CLOSED);
   const [expandedNip, setExpandedNip]   = useState<string | null>(null);
 
+  const [filterAssetYear, setFilterAssetYear] = useState<string>("semua");
+  const [rawVehicles, setRawVehicles] = useState<any[]>([]);
+  const [rawEquipment, setRawEquipment] = useState<any[]>([]);
+  const [viewingAsset, setViewingAsset] = useState<any | null>(null);
+
   // Kecocokan nama pegawai ↔ aset (Tahap 6 — fuzzy matching, validasi manual)
   const [assetIssues, setAssetIssues]       = useState<AssetNameIssue[]>([]);
   const [assetApplied, setAssetApplied]     = useState<Set<string>>(new Set());
@@ -83,21 +89,23 @@ export default function Cleansing() {
   }, [pegawaiList]);
 
   async function load(force = false) {
-    if (force) spreadsheetService.clearCache();
+    if (force) dataService.clearCache();
     setLoading(true);
     setAssetScanLoading(true);
     setErrorMsg(null);
     setApplied(new Set());     // reset applied saat scan ulang
     setAssetApplied(new Set());
     try {
-      const result = await spreadsheetService.getPegawai();
+      const result = await dataService.getPegawai();
       setPegawaiList(result as Pegawai[]);
 
       // Pindai kecocokan nama pegawai pada modul aktif V1.
       const [vehicles, equipment] = await Promise.all([
-        spreadsheetService.getVehicles(),
-        spreadsheetService.getEquipment(),
+        dataService.getVehicles(),
+        dataService.getEquipment(),
       ]);
+      setRawVehicles(vehicles as any[]);
+      setRawEquipment(equipment as any[]);
       // Bentuk baku baris aset — builder BERSAMA dengan halaman Pegawai &
       // getDashboardMetrics (@/lib/kelengkapan), satu definisi tanpa duplikasi.
       const unifiedAssets = buildUnifiedAssets(vehicles, equipment);
@@ -189,9 +197,25 @@ export default function Cleansing() {
 
   // Isu kecocokan nama aset yang masih aktif (belum diterapkan)
   const visibleAssetIssues = useMemo(
-    () => assetIssues.filter((a) => !assetApplied.has(a.id) && (!targetNip || String(a.matchedNip) === targetNip)),
-    [assetIssues, assetApplied, targetNip]
+    () => assetIssues.filter((a) => 
+      !assetApplied.has(a.id) && 
+      (!targetNip || String(a.matchedNip) === targetNip) &&
+      (filterAssetYear === "semua" || String(a.tahun || "") === filterAssetYear)
+    ),
+    [assetIssues, assetApplied, targetNip, filterAssetYear]
   );
+
+  const assetYears = useMemo(() => {
+    const years = new Set(assetIssues.map(a => String(a.tahun || "")).filter(t => t && t !== "-" && t.trim() !== ""));
+    return Array.from(years).sort((a, b) => Number(b) - Number(a));
+  }, [assetIssues]);
+
+  function handleViewAsset(sheet: string, assetId: string) {
+    let asset = null;
+    if (sheet === "assets_vehicle") asset = rawVehicles.find(v => String(v.asset_id) === assetId);
+    else if (sheet === "assets_equipment") asset = rawEquipment.find(eq => String(eq.asset_id) === assetId);
+    if (asset) setViewingAsset(asset);
+  }
 
   // --- Terapkan satu koreksi nama aset (SELALU individual, tidak ada bulk) ---
   async function applyAssetFix(issue: AssetNameIssue) {
@@ -208,7 +232,7 @@ export default function Cleansing() {
     try {
       await apiService.linkAssetEmployee(issue.sheet, issue.assetId, selectedEmployee.nip);
       setAssetApplied((prev) => new Set([...prev, issue.id]));
-      spreadsheetService.clearCache();
+      dataService.clearCache();
       toast.success(
         "Nama Pengguna Aset Diperbarui",
         `"${issue.currentHolder}" → "${selectedEmployee.nama}" (NIP ${selectedEmployee.nip}) pada ${issue.sheetLabel}.`
@@ -246,7 +270,7 @@ export default function Cleansing() {
       await new Promise((r) => setTimeout(r, 500));
     }
     setIsApplyingAll(false);
-    spreadsheetService.clearCache();
+    dataService.clearCache();
     if (berhasil > 0) {
       toast.success(
         "Selesai",
@@ -557,7 +581,21 @@ export default function Cleansing() {
           {assetScanLoading ? (
             <RefreshCw size={16} className="animate-spin text-gray-400 shrink-0" />
           ) : (
-            <span className="text-xs text-gray-400 shrink-0">{visibleAssetIssues.length} ditemukan</span>
+            <div className="flex items-center gap-3 shrink-0">
+              {assetYears.length > 0 && (
+                <select
+                  value={filterAssetYear}
+                  onChange={(e) => setFilterAssetYear(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500/50"
+                >
+                  <option value="semua">Semua Tahun</option>
+                  {assetYears.map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              )}
+              <span className="text-xs text-gray-400 font-medium">{visibleAssetIssues.length} ditemukan</span>
+            </div>
           )}
         </div>
 
@@ -605,7 +643,14 @@ export default function Cleansing() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{issue.sheetLabel}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{issue.assetLabel}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleViewAsset(issue.sheet, issue.assetId)}
+                        className="text-xs font-bold text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1 text-left"
+                        title="Lihat Detail Aset"
+                      >
+                        {issue.assetLabel} <ExternalLink size={12} className="opacity-50 shrink-0" />
+                      </button>
                       <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${confBadge}`}>
                         {issue.confidence === "belum" ? "Belum terhubung" : `${confPct}% cocok`}
                       </span>
@@ -657,7 +702,16 @@ export default function Cleansing() {
         )}
       </div>
 
-      <ConfirmModal state={confirmState} onClose={() => setConfirmState(CONFIRM_CLOSED)} />
+      <ConfirmModal
+        state={confirmState}
+        onClose={() => setConfirmState(CONFIRM_CLOSED)}
+      />
+
+      <AssetDetailModal
+        asset={viewingAsset}
+        isOpen={!!viewingAsset}
+        onClose={() => setViewingAsset(null)}
+      />
     </motion.div>
   );
 }

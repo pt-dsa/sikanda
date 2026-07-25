@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { X, Save, AlertTriangle, RefreshCw, Camera, Upload, User, CalendarDays, CheckCircle2 } from "lucide-react";
 import { Pegawai } from "@/types";
 import { apiService, fileToBase64 } from "@/services/apiService";
-import { spreadsheetService } from "@/services/spreadsheetService";
+import { dataService } from "@/services/dataService";
 import { toIndonesianDateText, toInputDate, parseAnyDate } from "@/lib/utils";
 import { canEditField, type AppUser } from "@/lib/rbac";
 import {
@@ -310,7 +310,7 @@ export function PegawaiFormModal({
         setPhotoPreview(uploadRes.viewUrl);
       }
 
-      spreadsheetService.clearCache();
+      dataService.clearCache();
       toast.success(initialData ? "Perubahan Data Berhasil Disimpan" : "Data Pegawai Berhasil Ditambahkan", initialData ? "Perubahan profil pegawai telah disimpan dan tervalidasi." : "Data pegawai baru telah tersimpan pada database.");
       onSuccess();
     } catch (error: any) {
@@ -321,7 +321,7 @@ export function PegawaiFormModal({
       setErrorMsg(message);
       toast.error(saveStage === "photo" ? "Unggah Foto Belum Berhasil" : "Penyimpanan Data Pegawai Gagal", message);
       if (saveStage === "photo") {
-        spreadsheetService.clearCache();
+        dataService.clearCache();
         onSuccess();
       }
     } finally {

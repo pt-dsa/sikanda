@@ -34,6 +34,7 @@ export interface UnifiedAsset {
   holderNip?: string;
   holderRaw?: string;
   holderStatus?: string;
+  tahun?: string;
 }
 
 export function buildUnifiedAssets(
@@ -49,6 +50,7 @@ export function buildUnifiedAssets(
       holderNip: String(v.pengguna_nip || ""),
       holderRaw: String(v.pengguna_raw || v.pengguna || ""),
       holderStatus: String(v.pengguna_match_status || ""),
+      tahun: String(v.tahun || v.purchase_year || ""),
     })),
     ...equipment.map((eq: any) => ({
       sheet: "assets_equipment" as AssetSheetName,
@@ -58,6 +60,7 @@ export function buildUnifiedAssets(
       holderNip: String(eq.pengguna_nip || ""),
       holderRaw: String(eq.pengguna_raw || eq.pengguna || ""),
       holderStatus: String(eq.pengguna_match_status || ""),
+      tahun: String(eq.tahun || eq.purchase_year || ""),
     })),
   ].filter((a) => a.assetId);
 }

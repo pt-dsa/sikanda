@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Search, CarFront, Wrench, FileText, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { spreadsheetService } from "@/services/spreadsheetService";
+import { dataService } from "@/services/dataService";
 import { cn, toSearchText } from "@/lib/utils";
 
 interface SearchResult {
@@ -68,8 +68,8 @@ export function GlobalSearch() {
       setIsLoading(true);
       try {
         const [v, e] = await Promise.all([
-          spreadsheetService.getVehicles(),
-          spreadsheetService.getEquipment()
+          dataService.getVehicles(),
+          dataService.getEquipment()
         ]);
         setAssetData({ vehicles: v, equipment: e });
         setAssetsLoaded(true);

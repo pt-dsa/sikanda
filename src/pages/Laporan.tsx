@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { Download, Printer, RefreshCw, Search, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { spreadsheetService } from "@/services/spreadsheetService";
+import { dataService } from "@/services/dataService";
 import Papa from "papaparse";
 import { useToast } from "@/components/ui/Toast";
 import { buildPenjagaanEvents, type PenjagaanEvent } from "@/lib/penjagaan";
@@ -176,9 +176,9 @@ export default function Laporan() {
   async function load() {
     setLoading(true);
     try {
-      spreadsheetService.clearCache();
+      dataService.clearCache();
       const [employeeData, vehicleData, equipmentData] = await Promise.all([
-        spreadsheetService.getPegawai(), spreadsheetService.getVehicles(), spreadsheetService.getEquipment(),
+        dataService.getPegawai(), dataService.getVehicles(), dataService.getEquipment(),
       ]);
       setPegawai(employeeData as Pegawai[]);
       setAgenda(buildPenjagaanEvents(employeeData));
@@ -233,7 +233,7 @@ export default function Laporan() {
     if (scope === "vehicle" || scope === "all") sections.push(rowsToPrintTable("Data Kendaraan", vehiclePrintRows(filteredVehicles), filterDescription(vehicleFilter as unknown as Record<string, string>)));
     if (scope === "equipment" || scope === "all") sections.push(rowsToPrintTable("Data Inventaris", equipmentPrintRows(filteredEquipment), filterDescription(equipmentFilter as unknown as Record<string, string>)));
     const content = `<!doctype html><html><head><meta charset="utf-8"><title>Rekap SIKANDA</title><style>
-      @page{size:A4 landscape;margin:9mm 8mm 10mm}*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:8.2px;line-height:1.25}p{color:#334155;margin:4px 0 7px}section{break-before:page;page-break-before:always;width:100%}section:first-of-type{break-before:auto;page-break-before:auto}h2{font-size:13px;margin:10px 0 3px}small{font-weight:normal;color:#64748b}table{width:100%;border-collapse:collapse;table-layout:fixed}thead{display:table-header-group}tfoot{display:table-footer-group}tr{break-inside:avoid;page-break-inside:avoid}th,td{border:0.7px solid #64748b;padding:3.5px 4px;text-align:left;vertical-align:top;word-break:normal;overflow-wrap:anywhere;white-space:normal}th{background:#dfeaf7;text-transform:none;font-weight:800;text-align:center;vertical-align:middle}tbody tr:nth-child(even){background:#f8fafc}td:first-child{white-space:nowrap}table[data-columns="12"]{font-size:7.4px}table[data-columns="11"]{font-size:7.7px}.letterhead{display:flex;align-items:center;justify-content:center;min-height:106px;width:100%}.letterhead-inner{display:grid;grid-template-columns:106px 700px;align-items:center;justify-content:center;column-gap:0;width:min(100%,806px);margin:0 auto}.letterhead-logo{width:106px;height:106px;object-fit:contain;display:block}.letterhead-text{width:700px;height:auto;object-fit:contain;display:block}.letterhead-lines{margin:3px 0 8px}.letterhead-lines span{display:block;border-top:2.4px solid #000;margin-top:2px}.letterhead-lines span+span{border-top-width:.8px}.report-title{font-size:15px;font-weight:900;margin:7px 0 1px}.meta{font-size:8px;color:#475569;margin-bottom:7px}.filter{padding:4px 6px;background:#f1f5f9;border-left:3px solid #2563eb}
+      @page{size:A4 landscape;margin:9mm 8mm 10mm}*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:8.2px;line-height:1.25}body::before{content:"";position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:50vw;height:50vh;background:url("${escapeHtml(logoKota)}") no-repeat center center;background-size:contain;opacity:0.05;z-index:-1;pointer-events:none}p{color:#334155;margin:4px 0 7px}section{break-before:page;page-break-before:always;width:100%}section:first-of-type{break-before:auto;page-break-before:auto}h2{font-size:13px;margin:10px 0 3px}small{font-weight:normal;color:#64748b}table{width:100%;border-collapse:collapse;table-layout:fixed}thead{display:table-header-group}tfoot{display:table-footer-group}tr{break-inside:avoid;page-break-inside:avoid}th,td{border:0.7px solid #64748b;padding:3.5px 4px;text-align:left;vertical-align:top;word-break:normal;overflow-wrap:anywhere;white-space:normal}th{background:#dfeaf7;text-transform:none;font-weight:800;text-align:center;vertical-align:middle}tbody tr:nth-child(even){background:#f8fafc}td:first-child{white-space:nowrap}table[data-columns="12"]{font-size:7.4px}table[data-columns="11"]{font-size:7.7px}.letterhead{display:flex;align-items:center;justify-content:center;min-height:106px;width:100%}.letterhead-inner{display:grid;grid-template-columns:106px 700px;align-items:center;justify-content:center;column-gap:0;width:min(100%,806px);margin:0 auto}.letterhead-logo{width:106px;height:106px;object-fit:contain;display:block}.letterhead-text{width:700px;height:auto;object-fit:contain;display:block}.letterhead-lines{margin:3px 0 8px}.letterhead-lines span{display:block;border-top:2.4px solid #000;margin-top:2px}.letterhead-lines span+span{border-top-width:.8px}.report-title{font-size:15px;font-weight:900;margin:7px 0 1px}.meta{font-size:8px;color:#475569;margin-bottom:7px}.filter{padding:4px 6px;background:#f1f5f9;border-left:3px solid #2563eb}
     </style></head><body>
       ${sections.join("")}
     </body></html>`;

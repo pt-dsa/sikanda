@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Papa from "papaparse";
-import { spreadsheetService } from "@/services/spreadsheetService";
+import { dataService } from "@/services/dataService";
 import { apiService } from "@/services/apiService";
 import { AuthContext } from "@/components/layout/AppShell";
 import { useToast } from "@/components/ui/Toast";
@@ -26,7 +26,7 @@ import {
   CalendarCheck, Search, RefreshCw, Download,
   TrendingUp, CalendarClock, Clock, Mail,
   LayoutList, Users, Bell, Send,
-  Settings,
+  Settings, X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -121,13 +121,13 @@ export default function BukuPenjagaan() {
   }, []);
 
   async function load(force = false) {
-    if (force) { setIsRefreshing(true); spreadsheetService.clearCache(); }
+    if (force) { setIsRefreshing(true); dataService.clearCache(); }
     else setLoading(true);
     setErrorMsg(null);
     try {
-      const result = await spreadsheetService.getPegawai();
+      const result = await dataService.getPegawai();
       setData(result as Pegawai[]);
-      setLastSync(spreadsheetService.getLastUpdated());
+      setLastSync(dataService.getLastUpdated());
     } catch (err: any) {
       setErrorMsg(err?.message || "Gagal memuat data pegawai.");
     } finally {
@@ -347,7 +347,7 @@ export default function BukuPenjagaan() {
     setSavingSettings(true);
     try {
       for (const [key, value] of Object.entries(settingsForm)) await apiService.setConfig(key, value);
-      spreadsheetService.clearCache();
+      dataService.clearCache();
       setSettingsOpen(false);
       await load(true);
       toast.success("Pengaturan Tersimpan", "Perhitungan agenda telah diperbarui.");
@@ -488,8 +488,17 @@ export default function BukuPenjagaan() {
               placeholder="Cari nama, NIP, jabatan..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full pl-8 pr-10 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full focus:ring-2 focus:ring-blue-500 outline-none"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                aria-label="Hapus kata kunci pencarian"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           {viewMode === "agenda" && (
