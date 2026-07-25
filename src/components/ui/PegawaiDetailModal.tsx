@@ -200,7 +200,7 @@ export function PegawaiDetailModal({
   onEdit?: () => void;
   onDelete?: () => void;
   onHardDelete?: () => void;
-  onVerifyMatch?: (type: "vehicle" | "equipment", id: string) => void;
+  onVerifyMatch?: () => void;
 }) {
   const { user } = useContext(AuthContext);
   const [openSection, setOpenSection] = useState<string>("biodata");

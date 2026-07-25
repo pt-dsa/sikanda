@@ -65,7 +65,6 @@ async function fetchTableData(
       if (fresh && (!photoUrlsDeferred || options.allowDeferredPhotos)) return parsed.data;
     }
 
-    const tableName = tableName;
     const filters: Array<{ column: string; op: "eq"; value: string }> = [];
 
     let request = inFlight.get(cacheKey);

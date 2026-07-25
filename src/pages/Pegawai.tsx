@@ -824,7 +824,7 @@ export default function PegawaiPage() {
                 : undefined
             }
             onHardDelete={
-              can(user?.role, "pegawai.delete.hard") || user?.role === "admin" || user?.role === "pimpinan"
+              user?.role === "admin" || user?.role === "pimpinan"
                 ? () => handleHardDelete(selectedPegawai)
                 : undefined
             }
