@@ -13,9 +13,9 @@
 
 ## 2\. Revisi Menu Dashboard
 
-- [ ] Card “Distribusi Pendidikan” urutkan Chart berdasarkan jenjang pendidikan. mulai dari SMP sampai S-2/STRATA II.  
-- [ ] seluruh teks Judul, Tittle,subtittle dan keterangan lainya harus cetak tebal (bold).  
-- [ ] seluruh Card dan chart harus rapih dan proporsional ukurannya.
+- [x] Card “Distribusi Pendidikan” urutkan Chart berdasarkan jenjang pendidikan. mulai dari SMP sampai S-2/STRATA II.  
+- [x] seluruh teks Judul, Tittle,subtittle dan keterangan lainya harus cetak tebal (bold).  
+- [x] seluruh Card dan chart harus rapih dan proporsional ukurannya.
 
 ## 3\. Revisi Menu Data ASN / PPPK
 

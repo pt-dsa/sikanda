@@ -56,7 +56,7 @@ function KpiCard({ title, value, icon: Icon, colorClass, subtitle }: {
             {typeof value === "number" && (String(title).toLowerCase().includes("pagu") || String(title).toLowerCase().includes("realisasi"))
               ? formatCurrency(value) : typeof value === "number" ? formatNumber(value) : value}
           </h4>
-          {subtitle && <p className="text-xs text-gray-400 mt-0.5 truncate">{subtitle}</p>}
+          {subtitle && <p className="text-xs font-bold text-gray-400 mt-0.5 truncate">{subtitle}</p>}
         </div>
       </CardContent>
     </Card>
@@ -84,7 +84,7 @@ function AlertCard({ title, count, subtitle, colorScheme, icon }: {
         <p className="text-2xl font-black text-gray-900 dark:text-gray-100 mt-1">
           {count} <span className="text-sm font-normal text-gray-600 dark:text-gray-400">Pegawai</span>
         </p>
-        <p className={`text-xs mt-1 ${P.sub}`}>{subtitle}</p>
+        <p className={`text-xs font-bold mt-1 ${P.sub}`}>{subtitle}</p>
         {count > 0 && (
           <div className="flex gap-1 mt-2">
             {Array.from({ length: Math.min(count, 8) }).map((_, i) => <span key={i} className={`w-2 h-2 rounded-full ${P.dot}`} />)}
@@ -117,7 +117,7 @@ function HorizontalBarChart({ data, labelClass = "w-16", fillHeight = false, onC
              onClick={() => onClickBar && onClickBar(item)}
              title={onClickBar ? `Klik untuk melihat data: ${item.name}` : undefined}
         >
-          <span className={`text-xs font-medium text-gray-600 dark:text-gray-400 shrink-0 text-right truncate ${labelClass}`} title={item.name}>{item.name}</span>
+          <span className={`text-xs font-bold text-gray-600 dark:text-gray-400 shrink-0 text-right truncate ${labelClass}`} title={item.name}>{item.name}</span>
           <div className={`flex-1 min-w-0 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden ${fillHeight ? "h-7" : "h-5"}`}>
             <motion.div
               className="h-full rounded-full flex items-center justify-end pr-2"
