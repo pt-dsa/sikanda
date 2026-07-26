@@ -73,6 +73,11 @@ export default function Cleansing() {
   const [rawEquipment, setRawEquipment] = useState<any[]>([]);
   const [viewingAsset, setViewingAsset] = useState<any | null>(null);
 
+  // Search states for tables
+  const [conditionSearch, setConditionSearch] = useState("");
+  const [pegawaiSearch, setPegawaiSearch] = useState("");
+  const [assetSearch, setAssetSearch] = useState("");
+
   // Kecocokan nama pegawai ↔ aset (Tahap 6 — fuzzy matching, validasi manual)
   const [assetIssues, setAssetIssues]       = useState<AssetNameIssue[]>([]);
   const [assetApplied, setAssetApplied]     = useState<Set<string>>(new Set());
@@ -193,9 +198,13 @@ export default function Cleansing() {
 
   // Isu yang ditampilkan per tab
   const visibleIssues = useMemo(() => {
-    if (activeTab === "semua") return allIssues;
-    return allIssues.filter((i) => i.kode === activeTab);
-  }, [allIssues, activeTab]);
+    let base = activeTab === "semua" ? allIssues : allIssues.filter((i) => i.kode === activeTab);
+    if (pegawaiSearch) {
+       const q = pegawaiSearch.toLowerCase();
+       base = base.filter(i => (i.nama || "").toLowerCase().includes(q) || (i.nip || "").toLowerCase().includes(q));
+    }
+    return base;
+  }, [allIssues, activeTab, pegawaiSearch]);
 
   // Hitung statistik
   const stats = useMemo(() => {
@@ -240,15 +249,22 @@ export default function Cleansing() {
     () => assetIssues.filter((a) => 
       !assetApplied.has(a.id) && 
       (!targetNip || String(a.matchedNip) === targetNip) &&
-      (filterAssetYear === "semua" || String(a.tahun || "") === filterAssetYear)
+      (filterAssetYear === "semua" || String(a.tahun || "") === filterAssetYear) &&
+      (!assetSearch || a.assetLabel.toLowerCase().includes(assetSearch.toLowerCase()) || a.currentHolder.toLowerCase().includes(assetSearch.toLowerCase()))
     ),
-    [assetIssues, assetApplied, targetNip, filterAssetYear]
+    [assetIssues, assetApplied, targetNip, filterAssetYear, assetSearch]
   );
 
   const assetYears = useMemo(() => {
     const years = new Set(assetIssues.map(a => String(a.tahun || "")).filter(t => t && t !== "-" && t.trim() !== ""));
     return Array.from(years).sort((a, b) => Number(b) - Number(a));
   }, [assetIssues]);
+
+  const filteredConditionIssues = useMemo(() => {
+    if (!conditionSearch) return conditionIssues;
+    const q = conditionSearch.toLowerCase();
+    return conditionIssues.filter(i => i.assetLabel.toLowerCase().includes(q) || String(i.assetId).toLowerCase().includes(q) || (i.holderName || "").toLowerCase().includes(q));
+  }, [conditionIssues, conditionSearch]);
 
   function handleViewAsset(sheet: string, assetId: string) {
     let asset = null;
@@ -417,8 +433,8 @@ export default function Cleansing() {
 
       {/* Data legacy wajib diverifikasi; tidak pernah dikoreksi massal menjadi BAIK. */}
       <section id="asset-condition-section" className="scroll-mt-5 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div className="flex-1 min-w-0">
             <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Wrench size={18} className="text-orange-600" /> Kondisi Aset Belum Diisi
             </h2>
@@ -426,30 +442,56 @@ export default function Cleansing() {
               Nilai kosong tidak dianggap BAIK. Periksa kondisi fisik setiap aset lalu simpan melalui tombol Perbaiki. Demi integritas data, tidak tersedia pengisian otomatis atau massal.
             </p>
           </div>
-          <span className="text-xs font-bold text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/30 px-3 py-1.5 rounded-full self-start sm:self-auto">
-            {conditionIssues.length} perlu verifikasi
-          </span>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+              <input
+                type="text"
+                placeholder="Cari aset atau pengguna..."
+                value={conditionSearch}
+                onChange={(e) => setConditionSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+              />
+            </div>
+            <span className="text-xs font-bold text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/30 px-3 py-1.5 rounded-full shrink-0">
+              {filteredConditionIssues.length} perlu verifikasi
+            </span>
+          </div>
         </div>
 
-        {conditionIssues.length === 0 ? (
+        {filteredConditionIssues.length === 0 ? (
           <div className="rounded-2xl border border-green-200 bg-green-50 p-6 text-center dark:border-green-900 dark:bg-green-950/20">
             <CheckCircle2 size={28} className="mx-auto mb-2 text-green-500" />
-            <p className="text-sm font-medium text-green-700 dark:text-green-300">Seluruh aset telah memiliki data kondisi.</p>
+            <p className="text-sm font-medium text-green-700 dark:text-green-300">
+              {conditionSearch ? "Tidak ada aset yang sesuai dengan pencarian." : "Seluruh aset telah memiliki data kondisi."}
+            </p>
           </div>
         ) : (
           <div className="rounded-2xl border border-orange-200 bg-white dark:border-orange-900/60 dark:bg-gray-800 overflow-hidden">
-            <div className="max-h-[28rem] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700/60">
-              {conditionIssues.map((issue) => (
-                <div key={issue.id} className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-orange-50/50 dark:hover:bg-orange-950/10">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-orange-700 bg-orange-100 dark:bg-orange-900/40 dark:text-orange-300 px-2 py-0.5 rounded-full">{issue.kindLabel}</span>
-                      <span className="text-xs font-mono text-gray-400">{issue.assetId}</span>
-                    </div>
-                    <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white break-words">{issue.assetLabel}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Pengguna: {issue.holderName || "Belum diisi"}</p>
-                  </div>
-                  {canEditAssets ? (
+            <div className="max-h-[28rem] overflow-y-auto">
+              <table className="w-full text-left border-collapse min-w-[600px]">
+                <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800 z-10 border-b border-gray-200 dark:border-gray-700">
+                  <tr className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    <th className="px-4 py-3 font-extrabold w-[120px]">Kategori</th>
+                    <th className="px-4 py-3 font-extrabold min-w-[200px]">Nama Aset</th>
+                    <th className="px-4 py-3 font-extrabold w-[200px]">Pengguna</th>
+                    <th className="px-4 py-3 font-extrabold w-[120px] text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                  {filteredConditionIssues.map((issue) => (
+                    <tr key={issue.id} className="hover:bg-orange-50/50 dark:hover:bg-orange-950/10">
+                      <td className="px-4 py-3 align-top">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-orange-700 bg-orange-100 dark:bg-orange-900/40 dark:text-orange-300 px-2 py-0.5 rounded-full">{issue.kindLabel}</span>
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white break-words">{issue.assetLabel}</p>
+                        <span className="text-xs font-mono text-gray-400">{issue.assetId}</span>
+                      </td>
+                      <td className="px-4 py-3 align-top text-xs text-gray-500 dark:text-gray-400">
+                        {issue.holderName || "Belum diisi"}
+                      </td>
+                      <td className="px-4 py-3 align-top text-right">
                     <button 
                       onClick={() => handleEditAsset(issue)}
                       className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700"
@@ -457,10 +499,13 @@ export default function Cleansing() {
                       <ExternalLink size={13} /> Perbaiki
                     </button>
                   ) : (
-                    <span className="text-xs italic text-gray-400">Perlu admin/pimpinan</span>
-                  )}
-                </div>
-              ))}
+                        <span className="text-xs italic text-gray-400">Perlu admin/pimpinan</span>
+                      )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -497,6 +542,18 @@ export default function Cleansing() {
       </div>
 
       {/* Tabel isu */}
+      <div className="flex flex-col sm:flex-row items-center justify-end mb-3">
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+          <input
+            type="text"
+            placeholder="Cari pegawai..."
+            value={pegawaiSearch}
+            onChange={(e) => setPegawaiSearch(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+          />
+        </div>
+      </div>
       {visibleIssues.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-16 text-center">
           <CheckCircle2 size={40} className="mx-auto text-green-500 mb-3" />
@@ -509,14 +566,14 @@ export default function Cleansing() {
       ) : (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[600px]">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-gray-800 text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                <th className="px-4 py-3 font-bold">Pegawai</th>
-                <th className="px-4 py-3 font-bold hidden md:table-cell">Tingkat</th>
-                <th className="px-4 py-3 font-bold">Masalah &amp; Field</th>
-                <th className="px-4 py-3 font-bold hidden lg:table-cell">Nilai Saat Ini</th>
-                <th className="px-4 py-3 font-bold hidden lg:table-cell">Saran Perbaikan</th>
-                <th className="px-4 py-3 font-bold text-right">Aksi</th>
+            <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800 z-10 border-b border-gray-200 dark:border-gray-700">
+              <tr className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <th className="px-4 py-3 font-extrabold w-[250px]">Pegawai</th>
+                <th className="px-4 py-3 font-extrabold hidden md:table-cell w-[100px]">Tingkat</th>
+                <th className="px-4 py-3 font-extrabold w-[200px]">Masalah &amp; Field</th>
+                <th className="px-4 py-3 font-extrabold hidden lg:table-cell w-[180px]">Nilai Saat Ini</th>
+                <th className="px-4 py-3 font-extrabold hidden lg:table-cell w-[250px]">Saran Perbaikan</th>
+                <th className="px-4 py-3 font-extrabold text-right w-[150px]">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
@@ -625,24 +682,34 @@ export default function Cleansing() {
 
       {/* Nama sumber tetap disimpan; NIP pegawai ditetapkan satu per satu. */}
       <div id="asset-verification-section" className="scroll-mt-5">
-        <div className="flex items-center justify-between mb-3">
-          <div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-3">
+          <div className="flex-1 min-w-0">
             <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <UserCheck2 size={18} className="text-indigo-600" /> Cleansing Nama Pengguna Aset
             </h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 max-w-3xl">
               Hubungkan setiap nama pengguna dengan pegawai resmi pada menu Data ASN / PPPK. Cari berdasarkan nama, NIP, atau jabatan, lalu simpan satu per satu.
             </p>
           </div>
           {assetScanLoading ? (
             <RefreshCw size={16} className="animate-spin text-gray-400 shrink-0" />
           ) : (
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                <input
+                  type="text"
+                  placeholder="Cari aset atau nama pengguna..."
+                  value={assetSearch}
+                  onChange={(e) => setAssetSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+                />
+              </div>
               {assetYears.length > 0 && (
                 <select
                   value={filterAssetYear}
                   onChange={(e) => setFilterAssetYear(e.target.value)}
-                  className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full sm:w-auto px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500/50"
                 >
                   <option value="semua">Semua Tahun</option>
                   {assetYears.map(y => (
@@ -650,7 +717,7 @@ export default function Cleansing() {
                   ))}
                 </select>
               )}
-              <span className="text-xs text-gray-400 font-medium">{visibleAssetIssues.length} ditemukan</span>
+              <span className="text-xs text-gray-400 font-medium whitespace-nowrap">{visibleAssetIssues.length} ditemukan</span>
             </div>
           )}
         </div>
@@ -684,84 +751,99 @@ export default function Cleansing() {
             </p>
           </div>
         ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-x-auto divide-y divide-gray-100 dark:divide-gray-700/50 min-w-[600px]">
-            {visibleAssetIssues.map((issue) => {
-              const isBusy = applyingAssetKey === issue.id;
-              const confPct = Math.round(issue.similarity * 100);
-              const selectedEmployee = assetSelections[issue.id];
-              const confBadge = issue.confidence === "tinggi"
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-                : issue.confidence === "sedang"
-                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-                  : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
-              return (
-                <div key={issue.id} className="p-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,1fr)_auto] lg:items-center">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{issue.sheetLabel}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleViewAsset(issue.sheet, issue.assetId)}
-                        className="text-xs font-bold text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1 text-left"
-                        title="Lihat Detail Aset"
-                      >
-                        {issue.assetLabel} <ExternalLink size={12} className="opacity-50 shrink-0" />
-                      </button>
-                      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${confBadge}`}>
-                        {issue.confidence === "belum" ? "Belum terhubung" : `${confPct}% cocok`}
-                      </span>
-                      {canEditAssets && (
-                        <button
-                          onClick={() => handleEditAssetByNameIssue(issue)}
-                          className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded"
-                        >
-                          <Edit2 size={10} /> Edit Aset
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Nama pada data lama/import</p>
-                    <p className="mt-1 break-words rounded-lg bg-red-50 px-2 py-1 text-sm font-medium text-red-700 dark:bg-red-900/20 dark:text-red-300">{issue.currentHolder}</p>
-                    {issue.currentNip && <p className="mt-1 text-xs text-gray-400">NIP lama: {issue.currentNip}</p>}
-                  </div>
-                  <div className="min-w-0">
-                    <EmployeeAutocomplete
-                      label="Hubungkan dengan pegawai"
-                      value={assetQueries[issue.id] || ""}
-                      selectedNip={selectedEmployee?.nip || ""}
-                      employees={pegawaiList}
-                      onChange={(value) => {
-                        setAssetQueries((previous) => ({ ...previous, [issue.id]: value }));
-                        setAssetSelections((previous) => ({ ...previous, [issue.id]: undefined }));
-                      }}
-                      onSelect={(employee) => {
-                        setAssetSelections((previous) => ({ ...previous, [issue.id]: employee || undefined }));
-                        if (employee) setAssetQueries((previous) => ({ ...previous, [issue.id]: employee.nama }));
-                      }}
-                      placeholder="Cari nama, NIP, atau jabatan pegawai..."
-                    />
-                  </div>
-                  {canEdit ? (
-                    <button
-                      disabled={isBusy || !selectedEmployee?.nip}
-                      onClick={() => setConfirmState({
-                        open: true,
-                        title: "Hubungkan Nama Pengguna",
-                        message: `Hubungkan pengguna pada ${issue.sheetLabel} (${issue.assetLabel}) dari:\n"${issue.currentHolder}"\n\ndengan pegawai:\n"${selectedEmployee?.nama}"\nNIP ${selectedEmployee?.nip}\nJabatan: ${selectedEmployee?.jabatan || "Belum tersedia"}\n\nPastikan orangnya benar sebelum menyimpan.`,
-                        confirmLabel: "Ya, Hubungkan",
-                        confirmClass: "bg-indigo-600 hover:bg-indigo-700",
-                        onConfirm: () => applyAssetFix(issue),
-                      })}
-                      className="shrink-0 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50 transition-colors"
-                    >
-                      {isBusy ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />}
-                      Hubungkan
-                    </button>
-                  ) : (
-                    <span className="text-xs text-gray-400 italic shrink-0">Perlu admin/pimpinan</span>
-                  )}
-                </div>
-              );
-            })}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[800px]">
+              <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800 z-10 border-b border-gray-200 dark:border-gray-700">
+                <tr className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <th className="px-4 py-3 font-extrabold min-w-[250px]">Aset &amp; Pengguna Lama</th>
+                  <th className="px-4 py-3 font-extrabold w-[350px]">Hubungkan dengan Pegawai</th>
+                  <th className="px-4 py-3 font-extrabold w-[150px] text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                {visibleAssetIssues.map((issue) => {
+                  const isBusy = applyingAssetKey === issue.id;
+                  const confPct = Math.round(issue.similarity * 100);
+                  const selectedEmployee = assetSelections[issue.id];
+                  const confBadge = issue.confidence === "tinggi"
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                    : issue.confidence === "sedang"
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
+                  return (
+                    <tr key={issue.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/20">
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{issue.sheetLabel}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleViewAsset(issue.sheet, issue.assetId)}
+                            className="text-xs font-bold text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1 text-left"
+                            title="Lihat Detail Aset"
+                          >
+                            {issue.assetLabel} <ExternalLink size={12} className="opacity-50 shrink-0" />
+                          </button>
+                          {canEditAssets && (
+                            <button
+                              onClick={() => handleEditAssetByNameIssue(issue)}
+                              className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded"
+                            >
+                              <Edit2 size={10} /> Edit Aset
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${confBadge}`}>
+                             {issue.confidence === "belum" ? "Belum terhubung" : `${confPct}% cocok`}
+                           </span>
+                           <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Pengguna Data Lama:</span>
+                        </div>
+                        <p className="mt-1 break-words rounded-lg bg-red-50 px-2 py-1 text-sm font-medium text-red-700 dark:bg-red-900/20 dark:text-red-300 w-fit">{issue.currentHolder}</p>
+                        {issue.currentNip && <p className="mt-1 text-xs text-gray-400">NIP lama: {issue.currentNip}</p>}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <EmployeeAutocomplete
+                          label=""
+                          value={assetQueries[issue.id] || ""}
+                          selectedNip={selectedEmployee?.nip || ""}
+                          employees={pegawaiList}
+                          onChange={(value) => {
+                            setAssetQueries((previous) => ({ ...previous, [issue.id]: value }));
+                            setAssetSelections((previous) => ({ ...previous, [issue.id]: undefined }));
+                          }}
+                          onSelect={(employee) => {
+                            setAssetSelections((previous) => ({ ...previous, [issue.id]: employee || undefined }));
+                            if (employee) setAssetQueries((previous) => ({ ...previous, [issue.id]: employee.nama }));
+                          }}
+                          placeholder="Cari nama, NIP, atau jabatan pegawai..."
+                        />
+                      </td>
+                      <td className="px-4 py-3 align-top text-right">
+                        {canEdit ? (
+                          <button
+                            disabled={isBusy || !selectedEmployee?.nip}
+                            onClick={() => setConfirmState({
+                              open: true,
+                              title: "Hubungkan Nama Pengguna",
+                              message: `Hubungkan pengguna pada ${issue.sheetLabel} (${issue.assetLabel}) dari:\n"${issue.currentHolder}"\n\ndengan pegawai:\n"${selectedEmployee?.nama}"\nNIP ${selectedEmployee?.nip}\nJabatan: ${selectedEmployee?.jabatan || "Belum tersedia"}\n\nPastikan orangnya benar sebelum menyimpan.`,
+                              confirmLabel: "Ya, Hubungkan",
+                              confirmClass: "bg-indigo-600 hover:bg-indigo-700",
+                              onConfirm: () => applyAssetFix(issue),
+                            })}
+                            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50 transition-colors"
+                          >
+                            {isBusy ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />}
+                            Hubungkan
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">Perlu admin/pimpinan</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

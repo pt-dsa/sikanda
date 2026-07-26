@@ -4,6 +4,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   --animate-radar-pulse: radar-pulse 3s cubic-bezier(0, 0.2, 0.8, 1) infinite;
   
   @keyframes radar-pulse {
@@ -32,6 +33,7 @@
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     @apply bg-[#e2e8f0] text-gray-900;
   }
   .dark body {

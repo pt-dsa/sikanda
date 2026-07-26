@@ -134,7 +134,13 @@ export default function PegawaiPage() {
     setConfirmState({
       open: true,
       title: "Nonaktifkan Pegawai",
-      message: `Nonaktifkan "${p.nama}" (NIP ${p.nip})?\n\nData tidak dihapus permanen dan tetap dapat ditelusuri oleh administrator.`,
+      message: (
+        <>
+          Nonaktifkan "<strong>{p.nama}</strong>" (NIP {p.nip})?
+          <br /><br />
+          Data tidak dihapus permanen dan tetap dapat ditelusuri oleh administrator.
+        </>
+      ),
       confirmLabel: "Nonaktifkan",
       confirmClass: "bg-red-600 hover:bg-red-700",
       onConfirm: async () => {
@@ -157,7 +163,7 @@ export default function PegawaiPage() {
       title: "Hapus Permanen Pegawai",
       message: (
         <>
-          <strong>PERINGATAN !</strong> Hapus permanen "{p.nama}" (NIP {p.nip}) dari database?
+          <strong>PERINGATAN !</strong> Hapus permanen "<strong>{p.nama}</strong>" (NIP {p.nip}) dari database?
           <br /><br />
           Semua data, foto, riwayat aset, dan kredensial login pegawai ini akan dihapus. Tindakan ini <strong>TIDAK DAPAT DIBATALKAN</strong>.
         </>
@@ -593,16 +599,16 @@ export default function PegawaiPage() {
         <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 z-10">
-              <tr className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
-                <th className="p-4 font-bold">NAMA PEGAWAI</th>
-                <th className="p-4 font-bold">NIP</th>
-                <th className="p-4 font-bold">Golongan</th>
-                <th className="p-4 font-bold">Jabatan & Unit Kerja</th>
-                <th className="p-4 font-bold">Status</th>
-                <th className="p-4 font-bold">KGB Berikutnya</th>
-                <th className="p-4 font-bold">Aset</th>
-                {can(user?.role, "pegawai.edit.any") && <th className="p-4 font-bold text-center">WhatsApp</th>}
-                <th className="p-4 font-bold">Kelengkapan</th>
+              <tr className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-extrabold text-xs uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                <th className="p-4">NAMA PEGAWAI</th>
+                <th className="p-4">NIP</th>
+                <th className="p-4">Golongan</th>
+                <th className="p-4">Jabatan & Unit Kerja</th>
+                <th className="p-4">Status</th>
+                <th className="p-4">KGB Berikutnya</th>
+                <th className="p-4">Aset</th>
+                {can(user?.role, "pegawai.edit.any") && <th className="p-4 text-center">WhatsApp</th>}
+                <th className="p-4">Kelengkapan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">

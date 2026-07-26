@@ -1,2 +1,3 @@
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run """E:\sikanda\start-server.bat""", 0, False
+' Jalankan start-server.bat dengan argumen "dev" agar selalu otomatis update/refresh (HMR) 
+WshShell.Run """E:\sikanda\start-server.bat"" dev", 0, False

@@ -556,15 +556,15 @@ export default function BukuPenjagaan() {
             <div className="overflow-auto md:flex-1 md:min-h-0">
               <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 z-10">
-                  <tr className="bg-gray-100 dark:bg-gray-800 text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    <th className="px-4 py-3 font-bold">Pegawai</th>
-                    <th className="px-4 py-3 font-bold">Gol.</th>
-                    <th className="px-4 py-3 font-bold">Jabatan &amp; Bidang</th>
-                    <th className="px-4 py-3 font-bold">TMT Golongan</th>
-                    <th className="px-4 py-3 font-bold">Kategori</th>
-                    <th className="px-4 py-3 font-bold">Tenggat Waktu</th>
-                    <th className="px-4 py-3 font-bold">Sisa Waktu</th>
-                    <th className="px-4 py-3 font-bold">Indikator</th>
+                  <tr className="bg-gray-100 dark:bg-gray-800 text-xs uppercase tracking-wider text-gray-700 dark:text-gray-200 font-extrabold border-b border-gray-200 dark:border-gray-700">
+                    <th className="px-4 py-3 w-[220px]">Pegawai</th>
+                    <th className="px-4 py-3 w-[80px]">Gol.</th>
+                    <th className="px-4 py-3 w-[220px]">Jabatan &amp; Bidang</th>
+                    <th className="px-4 py-3 w-[130px]">TMT Golongan</th>
+                    <th className="px-4 py-3 w-[150px]">Kategori</th>
+                    <th className="px-4 py-3 w-[130px]">Tenggat Waktu</th>
+                    <th className="px-4 py-3 w-[120px]">Sisa Waktu</th>
+                    <th className="px-4 py-3 w-[120px]">Indikator</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
@@ -660,14 +660,14 @@ export default function BukuPenjagaan() {
             <div className="overflow-auto md:flex-1 md:min-h-0">
               <table className="w-full text-left border-collapse min-w-[900px]">
                 <thead className="sticky top-0 z-10">
-                  <tr className="bg-gray-100 dark:bg-gray-800 text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                    <th className="px-4 py-3 font-semibold">Pegawai</th>
-                    <th className="px-4 py-3 font-semibold">Gol.</th>
-                    <th className="px-4 py-3 font-semibold">TMT Golongan</th>
-                    <th className="px-4 py-3 font-semibold">KGB</th>
-                    <th className="px-4 py-3 font-semibold">Kenaikan Pangkat</th>
-                    <th className="px-4 py-3 font-semibold">Pensiun / BUP</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
+                  <tr className="bg-gray-100 dark:bg-gray-800 text-xs uppercase tracking-wider text-gray-700 dark:text-gray-200 font-extrabold border-b border-gray-200 dark:border-gray-700">
+                    <th className="px-4 py-3 w-[220px]">Pegawai</th>
+                    <th className="px-4 py-3 w-[80px]">Gol.</th>
+                    <th className="px-4 py-3 w-[130px]">TMT Golongan</th>
+                    <th className="px-4 py-3 w-[140px]">KGB</th>
+                    <th className="px-4 py-3 w-[140px]">Kenaikan Pangkat</th>
+                    <th className="px-4 py-3 w-[140px]">Pensiun / BUP</th>
+                    <th className="px-4 py-3 w-[120px]">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">

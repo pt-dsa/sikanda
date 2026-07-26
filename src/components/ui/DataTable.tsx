@@ -8,6 +8,7 @@ export interface ColumnDef<T> {
   accessorKey?: keyof T | string;
   cell?: (row: T) => React.ReactNode;
   sortable?: boolean;
+  className?: string;
 }
 
 interface DataTableProps<T> {
@@ -178,7 +179,7 @@ export function DataTable<T>({
               {columns.map((col, idx) => (
                 <TableHead 
                   key={idx} 
-                  className={cn(col.sortable ? "cursor-pointer select-none hover:bg-gray-100/50 dark:hover:bg-gray-800" : "")}
+                  className={cn(col.sortable ? "cursor-pointer select-none hover:bg-gray-100/50 dark:hover:bg-gray-800" : "", col.className)}
                   onClick={() => {
                     if (col.sortable && col.accessorKey) {
                       requestSort(col.accessorKey as string);

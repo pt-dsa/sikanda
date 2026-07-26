@@ -51,12 +51,12 @@ function KpiCard({ title, value, icon: Icon, colorClass, subtitle }: {
       <CardContent className="p-5 flex items-center gap-4">
         <div className={`p-3 rounded-2xl shrink-0 ${colorClass}`}><Icon size={22} /></div>
         <div className="min-w-0">
-          <p className="text-sm font-extrabold text-gray-700 dark:text-gray-200 leading-snug">{title}</p>
-          <h4 className="text-2xl font-bold text-gray-900 dark:text-white mt-0.5">
+          <p className="text-sm font-extrabold text-gray-800 dark:text-gray-100 leading-snug">{title}</p>
+          <h4 className="text-3xl font-black text-gray-900 dark:text-white mt-1">
             {typeof value === "number" && (String(title).toLowerCase().includes("pagu") || String(title).toLowerCase().includes("realisasi"))
               ? formatCurrency(value) : typeof value === "number" ? formatNumber(value) : value}
           </h4>
-          {subtitle && <p className="text-xs font-bold text-gray-400 mt-0.5 truncate">{subtitle}</p>}
+          {subtitle && <p className="text-xs font-extrabold text-gray-500 dark:text-gray-400 mt-1 leading-snug">{subtitle}</p>}
         </div>
       </CardContent>
     </Card>
@@ -81,10 +81,10 @@ function AlertCard({ title, count, subtitle, colorScheme, icon }: {
       <div className={`p-3 rounded-full shrink-0 ${P.icon}`}><Icon size={22} /></div>
       <div className="min-w-0">
         <h3 className={`text-base font-extrabold leading-snug ${P.title}`}>{title}</h3>
-        <p className="text-2xl font-black text-gray-900 dark:text-gray-100 mt-1">
-          {count} <span className="text-sm font-normal text-gray-600 dark:text-gray-400">Pegawai</span>
+        <p className="text-3xl font-black text-gray-900 dark:text-gray-100 mt-1">
+          {count} <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Pegawai</span>
         </p>
-        <p className={`text-xs font-bold mt-1 ${P.sub}`}>{subtitle}</p>
+        <p className={`text-xs font-extrabold mt-1 leading-snug ${P.sub}`}>{subtitle}</p>
         {count > 0 && (
           <div className="flex gap-1 mt-2">
             {Array.from({ length: Math.min(count, 8) }).map((_, i) => <span key={i} className={`w-2 h-2 rounded-full ${P.dot}`} />)}
@@ -271,8 +271,8 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-3">
         <motion.div variants={itemVars}>
-          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Dashboard SIKANDA</h1>
-          <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">Sistem Informasi Kepegawaian dan Pengelolaan Aset Daerah</p>
+          <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Dashboard SIKANDA</h1>
+          <p className="text-sm font-extrabold text-gray-600 dark:text-gray-400 mt-1">Sistem Informasi Kepegawaian dan Pengelolaan Aset Daerah</p>
         </motion.div>
         <motion.div variants={itemVars} className="flex flex-wrap items-center justify-end gap-2">
           <div className="flex items-center gap-2 text-sm text-gray-500 bg-white/60 dark:bg-gray-800/60 px-3 py-2 rounded-full border border-gray-100 dark:border-gray-700">
@@ -313,7 +313,7 @@ export default function Dashboard() {
         <div className="flex flex-col gap-6">
           {/* ── SECTION 1: Metrik Kepegawaian Utama ── */}
           <section className="order-1">
-            <h2 className="text-sm font-extrabold text-gray-700 dark:text-gray-200 mb-3 pb-2 border-b border-gray-200 dark:border-gray-800 uppercase tracking-wider">
+            <h2 className="text-sm font-black text-gray-800 dark:text-gray-200 mb-3 pb-2 border-b border-gray-200 dark:border-gray-800 uppercase tracking-wider">
               Metrik Kepegawaian Utama
             </h2>
             <motion.div variants={itemVars} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
@@ -335,7 +335,7 @@ export default function Dashboard() {
           {/* ── SECTION 2: Buku Penjagaan ── */}
           <section className="order-2">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200 dark:border-gray-800">
-              <h2 className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+              <h2 className="text-sm font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider">
                 Buku Penjagaan — Rekapitulasi Agenda ≤ 12 Bulan
               </h2>
               <Link to="/buku-penjagaan" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 shrink-0">
@@ -362,7 +362,7 @@ export default function Dashboard() {
           {typeof metrics.kelengkapanLengkap === "number" && (
             <section className="order-4">
               <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200 dark:border-gray-800">
-                <h2 className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                <h2 className="text-sm font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider">
                   Kelengkapan Data Pegawai &amp; Relasi Aset
                 </h2>
                 <Link to="/pegawai" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 shrink-0">
@@ -440,7 +440,7 @@ export default function Dashboard() {
 
           {/* ── SECTION 3: Komposisi SDM ── */}
           <section className="order-3">
-            <h2 className="text-sm font-extrabold text-gray-700 dark:text-gray-200 mb-3 pb-2 border-b border-gray-200 dark:border-gray-800 uppercase tracking-wider">
+            <h2 className="text-sm font-black text-gray-800 dark:text-gray-200 mb-3 pb-2 border-b border-gray-200 dark:border-gray-800 uppercase tracking-wider">
               Komposisi SDM
             </h2>
             <motion.div variants={itemVars} className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-stretch">

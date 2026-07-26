@@ -16,7 +16,6 @@ const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const PegawaiPage = lazy(() => import("@/pages/Pegawai"));
 const BukuPenjagaan = lazy(() => import("@/pages/BukuPenjagaan"));
 const Kendaraan = lazy(() => import("@/pages/Kendaraan"));
-const AlatMesin = lazy(() => import("@/pages/AlatMesin"));
 const Inventaris = lazy(() => import("@/pages/Inventaris"));
 const PaguAnggaran = lazy(() => import("@/pages/PaguAnggaran"));
 const PemeliharaanKendaraan = lazy(() => import("@/pages/PemeliharaanKendaraan"));
@@ -73,7 +72,6 @@ export default function App() {
                 <Route path="/pegawai" element={<GuardedPage menu="pegawai"><PegawaiPage /></GuardedPage>} />
                 <Route path="/buku-penjagaan" element={<GuardedPage menu="buku-penjagaan"><BukuPenjagaan /></GuardedPage>} />
                 <Route path="/kendaraan" element={<GuardedPage menu="kendaraan"><Kendaraan /></GuardedPage>} />
-                <Route path="/alat-mesin" element={<GuardedPage menu="alat-mesin"><AlatMesin /></GuardedPage>} />
                 <Route path="/inventaris" element={<GuardedPage menu="inventaris"><Inventaris /></GuardedPage>} />
                 <Route path="/pagu" element={<GuardedPage menu="pagu"><PaguAnggaran /></GuardedPage>} />
                 <Route path="/pemeliharaan-kendaraan" element={<GuardedPage menu="pemeliharaan-kendaraan"><PemeliharaanKendaraan /></GuardedPage>} />

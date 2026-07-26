@@ -32,7 +32,6 @@ export type MenuKey =
   | "pegawai"
   | "buku-penjagaan"
   | "kendaraan"
-  | "alat-mesin"
   | "inventaris"
   | "pagu"
   | "pemeliharaan-kendaraan"
@@ -80,7 +79,6 @@ const ALL_MENUS: MenuKey[] = [
   "pegawai",
   "buku-penjagaan",
   "kendaraan",
-  "alat-mesin",
   "inventaris",
   "pagu",
   "pemeliharaan-kendaraan",

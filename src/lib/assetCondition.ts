@@ -138,7 +138,7 @@ export function scanMissingAssetConditions(
       holderName: String(item.pengguna || "").trim(),
       kind: "equipment" as const,
       kindLabel: "Inventaris" as const,
-      editPath: `/alat-mesin?edit=${encodeURIComponent(String(item.asset_id || ""))}`,
+      editPath: `/inventaris?edit=${encodeURIComponent(String(item.asset_id || ""))}`,
     }));
 
   return [...vehicleIssues, ...equipmentIssues];
