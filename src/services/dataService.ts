@@ -218,9 +218,13 @@ function buildGolonganDistribusi(list: any[]): DistribusiItem[] {
 
 function buildPendidikanDistribusi(list: any[]): DistribusiItem[] {
   const LABEL: Record<string, string> = {
-    "STRATA II": "S-2", "STRATA I": "S-1",
-    "DIPLOMA IV": "D-IV", "DIPLOMA III": "D-III",
-    "SEKOLAH LANJUTAN TINGKAT ATAS": "SLTA",
+    "STRATA II": "S-2/STRATA II", "STRATA I": "S-1/STRATA I",
+    "DIPLOMA IV": "D-IV", "DIPLOMA III": "D-III", "DIPLOMA II": "D-II", "DIPLOMA I": "D-I",
+    "SEKOLAH LANJUTAN TINGKAT ATAS": "SMA/SMK/SLTA",
+    "SMA": "SMA/SMK/SLTA", "SMK": "SMA/SMK/SLTA", "SLTA": "SMA/SMK/SLTA",
+    "SEKOLAH MENENGAH PERTAMA": "SMP", "SMP": "SMP",
+    "SEKOLAH DASAR": "SD", "SD": "SD",
+    "S2": "S-2/STRATA II", "S1": "S-1/STRATA I", "S-2": "S-2/STRATA II", "S-1": "S-1/STRATA I",
   };
   const counts: Record<string, number> = {};
   for (const p of list) {
@@ -228,7 +232,8 @@ function buildPendidikanDistribusi(list: any[]): DistribusiItem[] {
     const label = LABEL[raw] || (raw || "Lainnya");
     counts[label] = (counts[label] || 0) + 1;
   }
-  const ORDER = ["S-2", "S-1", "D-IV", "D-III", "SLTA", "Lainnya"];
+  // Urutan dari jenjang terendah ke tertinggi (SMP → S-2)
+  const ORDER = ["SD", "SMP", "SMA/SMK/SLTA", "D-I", "D-II", "D-III", "D-IV", "S-1/STRATA I", "S-2/STRATA II", "Lainnya"];
   return Object.entries(counts)
     .sort(([a], [b]) => (ORDER.indexOf(a) + 1 || 99) - (ORDER.indexOf(b) + 1 || 99))
     .map(([name, value]) => ({ name, value }));

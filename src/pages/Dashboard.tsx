@@ -272,7 +272,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-3">
         <motion.div variants={itemVars}>
           <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Dashboard SIKANDA</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Sistem Informasi Kepegawaian dan Pengelolaan Aset Daerah</p>
+          <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">Sistem Informasi Kepegawaian dan Pengelolaan Aset Daerah</p>
         </motion.div>
         <motion.div variants={itemVars} className="flex flex-wrap items-center justify-end gap-2">
           <div className="flex items-center gap-2 text-sm text-gray-500 bg-white/60 dark:bg-gray-800/60 px-3 py-2 rounded-full border border-gray-100 dark:border-gray-700">
@@ -493,7 +493,7 @@ export default function Dashboard() {
               <Card className="h-full min-h-[310px]">
                 <CardHeader className="pb-2"><div className="flex items-center gap-2"><GraduationCap size={16} className="text-green-500" /><CardTitle className="text-base font-extrabold">Distribusi Pendidikan</CardTitle></div></CardHeader>
                 <CardContent className="pb-5 min-h-[250px] flex flex-col justify-center">
-                  <HorizontalBarChart data={(metrics.distribusiPendidikan || []).slice(0, 9)} labelClass="w-24" onClickBar={(item) => navigate(`/pegawai?pendidikan=${encodeURIComponent(item.name)}`)} colorStart={2} />
+                  <HorizontalBarChart data={(metrics.distribusiPendidikan || []).slice(0, 10)} labelClass="w-32" onClickBar={(item) => navigate(`/pegawai?pendidikan=${encodeURIComponent(item.name)}`)} colorStart={2} />
                 </CardContent>
               </Card>
               {/* Masa Kerja */}

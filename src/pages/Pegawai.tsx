@@ -7,7 +7,7 @@ import { can, canEditPegawaiRow } from "@/lib/rbac";
 import { Pegawai } from "@/types";
 import { Card, CardContent } from "@/components/ui/Card";
 import {
-  Search, Info, Briefcase, UserCircle, Calendar, AlertTriangle, Camera,
+  Search, Info, Briefcase, UserCircle, Calendar, AlertTriangle,
   Package, ZoomIn, ImageOff, Phone, GraduationCap, Clock,
   CheckCircle2, CircleDot, Car, Wrench, Archive, ChevronDown, RefreshCw, Plus, Edit2, X, Save, Trash2,
   Download,
@@ -28,7 +28,6 @@ import {
 import { AssetDetailModal } from "@/components/ui/AssetDetailModal";
 import { employmentStatusLabel, matchesEmploymentStatus } from "@/lib/employmentStatus";
 import { whatsappChatUrl } from "@/lib/contact";
-import { ScreenCaptureTool } from "@/components/ui/ScreenCaptureTool";
 
 // ---------------------------------------------------------------------------
 // Badge Kelengkapan Data (Core Value) — 9 kriteria via @/lib/kelengkapan.
@@ -120,7 +119,6 @@ export default function PegawaiPage() {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingPegawai, setEditingPegawai] = useState<Pegawai | null>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState>(CONFIRM_CLOSED);
-  const [captureOpen, setCaptureOpen] = useState(false);
   // NIP yang punya temuan fuzzy Levenshtein nama ↔ holder_name aset
   // (kriteria ke-9 kelengkapan: relasi nama aset harus bersih).
   const [fuzzyNipSet, setFuzzyNipSet] = useState<Set<string>>(new Set());
@@ -408,7 +406,7 @@ export default function PegawaiPage() {
       <div className="md:shrink-0 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Data ASN / PPPK</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-0.5">
             Kelola profil, jabatan, dan tanggungan aset · {data.length} pegawai
             {" · "}
             <button
@@ -457,17 +455,7 @@ export default function PegawaiPage() {
               </button>
             )}
           </div>
-          {can(user?.role, "pegawai.edit.any") && (
-            <button
-              type="button"
-              onClick={() => setCaptureOpen(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold bg-sky-50 text-sky-700 border border-sky-200 rounded-xl hover:bg-sky-100 transition-colors shrink-0 shadow-sm dark:bg-sky-900/20 dark:text-sky-300 dark:border-sky-800"
-              title="Capture bagian layar untuk dikirim kepada pegawai"
-            >
-              <Camera size={15} />
-              Capture Layar
-            </button>
-          )}
+
           {can(user?.role, "data.export") && (
             <button
               onClick={handleExportCSV}
@@ -505,9 +493,9 @@ export default function PegawaiPage() {
       <div className="md:shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { key: "all" as const, label: "Total Pegawai", val: data.length, color: "text-gray-800 dark:text-gray-200", bg: "bg-gray-100 dark:bg-gray-800" },
-          { key: "exact" as const, label: "Aset Terverifikasi", val: matchStats.exact, color: "text-green-700 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/20" },
-          { key: "fuzzy" as const, label: "Perlu Verifikasi", val: matchStats.fuzzy, color: "text-yellow-700 dark:text-yellow-400", bg: "bg-yellow-50 dark:bg-yellow-900/20" },
-          { key: "none" as const, label: "Tanpa Aset", val: matchStats.none, color: "text-gray-500", bg: "bg-gray-50 dark:bg-gray-800/30" },
+          { key: "exact" as const, label: "Pegawai dengan Aset Terverifikasi", val: matchStats.exact, color: "text-green-700 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/20" },
+          { key: "fuzzy" as const, label: "Pegawai dengan Aset Perlu Verifikasi", val: matchStats.fuzzy, color: "text-yellow-700 dark:text-yellow-400", bg: "bg-yellow-50 dark:bg-yellow-900/20" },
+          { key: "none" as const, label: "Pegawai Tanpa Aset", val: matchStats.none, color: "text-gray-500", bg: "bg-gray-50 dark:bg-gray-800/30" },
         ].map((s) => {
           const active = filterMatch === s.key;
           return (
@@ -858,7 +846,6 @@ export default function PegawaiPage() {
         )}
       </AnimatePresence>
       <ConfirmModal state={confirmState} onClose={() => setConfirmState(CONFIRM_CLOSED)} />
-      <ScreenCaptureTool open={captureOpen} onClose={() => setCaptureOpen(false)} />
     </div>
   );
 }

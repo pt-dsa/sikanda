@@ -282,7 +282,7 @@ export default function BukuPenjagaan() {
             "BIDANG":         e.bidang,
             "TMT GOLONGAN":   formatDate(pegawaiByNip.get(e.nip)?.tgl_mulai_golongan || ""),
             "KATEGORI":       KATEGORI_LABEL[e.kategori],
-            "JATUH TEMPO":    formatDate(e.tanggal),
+            "TENGGAT WAKTU":  formatDate(e.tanggal),
             "SISA WAKTU":     sisaWaktuLabel(e),
             "STATUS AGENDA":  e.isOverdue ? "Terlewat" : "Akan Datang",
           }))
@@ -294,12 +294,12 @@ export default function BukuPenjagaan() {
             "BIDANG":         r.bidang,
             "STATUS":         r.status,
             "TMT GOLONGAN":   formatDate(r.tmt_golongan),
-            "KGB — JATUH TEMPO": r.kgb ? formatDate(r.kgb.tanggal) : "-",
-            "KGB — SISA WAKTU":  r.kgb ? sisaWaktuLabel(r.kgb) : "-",
-            "PANGKAT — JATUH TEMPO": r.pangkat ? formatDate(r.pangkat.tanggal) : "-",
-            "PANGKAT — SISA WAKTU":  r.pangkat ? sisaWaktuLabel(r.pangkat) : "-",
-            "BUP — JATUH TEMPO": r.bup ? formatDate(r.bup.tanggal) : "-",
-            "BUP — SISA WAKTU":  r.bup ? sisaWaktuLabel(r.bup) : "-",
+            "KGB — TENGGAT WAKTU": r.kgb ? formatDate(r.kgb.tanggal) : "-",
+            "KGB — SISA WAKTU":    r.kgb ? sisaWaktuLabel(r.kgb) : "-",
+            "PANGKAT — TENGGAT WAKTU": r.pangkat ? formatDate(r.pangkat.tanggal) : "-",
+            "PANGKAT — SISA WAKTU":    r.pangkat ? sisaWaktuLabel(r.pangkat) : "-",
+            "BUP — TENGGAT WAKTU": r.bup ? formatDate(r.bup.tanggal) : "-",
+            "BUP — SISA WAKTU":    r.bup ? sisaWaktuLabel(r.bup) : "-",
           }));
 
     if (rows.length === 0) { toast.warning("Ekspor Kosong", "Tidak ada data."); return; }
@@ -330,13 +330,14 @@ export default function BukuPenjagaan() {
   }
 
   async function openSettings() {
+    // Buka modal langsung tanpa menunggu fetch agar tidak ada delay lag tampil
+    setSettingsOpen(true);
     try {
       const res = await apiService.getConfig();
       setSettingsForm((prev) => ({
         ...prev,
         ...Object.fromEntries(Object.keys(prev).map((key) => [key, String(res.config?.[key] ?? prev[key as keyof typeof prev])])),
       }));
-      setSettingsOpen(true);
     } catch (err: any) {
       toast.error("Gagal Memuat Pengaturan", err?.message || "Pengaturan tidak dapat dimuat.");
     }
@@ -420,7 +421,7 @@ export default function BukuPenjagaan() {
             disabled={isRefreshing}
             className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
           >
-            <RefreshCw size={15} className={isRefreshing ? "animate-spin" : ""} /> Refresh
+            <RefreshCw size={15} className={isRefreshing ? "animate-spin" : ""} /> Sinkronisasi
           </button>
         </div>
       </div>
@@ -561,7 +562,7 @@ export default function BukuPenjagaan() {
                     <th className="px-4 py-3 font-bold">Jabatan &amp; Bidang</th>
                     <th className="px-4 py-3 font-bold">TMT Golongan</th>
                     <th className="px-4 py-3 font-bold">Kategori</th>
-                    <th className="px-4 py-3 font-bold">Jatuh Tempo</th>
+                    <th className="px-4 py-3 font-bold">Tenggat Waktu</th>
                     <th className="px-4 py-3 font-bold">Sisa Waktu</th>
                     <th className="px-4 py-3 font-bold">Indikator</th>
                   </tr>
@@ -637,7 +638,7 @@ export default function BukuPenjagaan() {
                     <div><div className="text-[11px] text-gray-400">Kategori</div><div className="text-gray-800 dark:text-gray-200">{KATEGORI_LABEL[e.kategori]}</div></div>
                     <div><div className="text-[11px] text-gray-400">Golongan</div><div className="text-gray-800 dark:text-gray-200">{e.golongan || "-"}</div></div>
                     <div><div className="text-[11px] text-gray-400">TMT Golongan</div><div className="text-gray-700 dark:text-gray-300">{tmtGolongan ? formatDate(tmtGolongan) : "-"}</div></div>
-                    <div><div className="text-[11px] text-gray-400">Jatuh Tempo</div><div className="text-gray-800 dark:text-gray-200">{formatDate(e.tanggal)}</div></div>
+                    <div><div className="text-[11px] text-gray-400">Tenggat Waktu</div><div className="text-gray-800 dark:text-gray-200">{formatDate(e.tanggal)}</div></div>
                     <div className="col-span-2"><div className="text-[11px] text-gray-400">Sisa Waktu</div>
                       <div className={e.selisihHari < 0 ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-800 dark:text-gray-200"}>
                         {sisaWaktuLabel(e)}
