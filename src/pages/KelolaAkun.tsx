@@ -529,26 +529,26 @@ export default function KelolaAkun() {
                 <table className="w-full text-sm text-left border-collapse relative">
                   <thead className="sticky top-0 z-10 bg-gray-50/95 dark:bg-gray-800/95 backdrop-blur-sm">
                     <tr className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                      <th className="px-4 py-3 font-bold">Nama Pegawai</th>
+                      <th className="px-4 py-3 font-bold">NIP</th>
+                      <th className="px-4 py-3 font-bold">Status Pegawai</th>
                       <th className="px-4 py-3 font-bold">Email</th>
                       <th className="px-4 py-3 font-bold">Peran</th>
-                      <th className="px-4 py-3 font-bold">Nama</th>
-                      <th className="px-4 py-3 font-bold">NIP</th>
-                      <th className="px-4 py-3 font-bold">Status</th>
                       <th className="px-4 py-3 font-bold text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredUsers.map((u) => (
                       <tr key={u.email} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/30">
-                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
-                          {u.email || <span className="text-amber-500 dark:text-amber-400 italic text-xs font-normal">(email belum diisi — klik Edit)</span>}
-                        </td>
-                        <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-bold ${ROLE_BADGE[u.role] || ""}`}>{ROLE_LABEL[u.role] || u.role}</span></td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{u.nama || "—"}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300 font-medium">{u.nama || "—"}</td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-300 font-mono text-xs">{u.nip || "—"}</td>
                         <td className="px-4 py-3">
                           {(() => { const status = accountStatus(u); const StatusIcon = status.icon; return <span className={`inline-flex items-center gap-1 text-xs font-bold ${status.className}`}><StatusIcon size={14} /> {status.label}</span>; })()}
                         </td>
+                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                          {u.email || <span className="text-amber-500 dark:text-amber-400 italic text-xs font-normal">(email belum diisi — klik Edit)</span>}
+                        </td>
+                        <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-bold ${ROLE_BADGE[u.role] || ""}`}>{ROLE_LABEL[u.role] || u.role}</span></td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-2">
                             <button onClick={() => openEdit(u)} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg" title="Edit"><Pencil size={15} /></button>

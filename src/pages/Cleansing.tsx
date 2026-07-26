@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   ScanSearch, RefreshCw, CheckCircle2, AlertTriangle,
   ShieldAlert, Info, ChevronDown, ChevronUp, Zap, Check,
-  UserCheck2, ExternalLink, Wrench,
+  UserCheck2, ExternalLink, Wrench, X,
+ Edit2,
 } from "lucide-react";
 import { dataService } from "@/services/dataService";
 import { apiService } from "@/services/apiService";
@@ -25,6 +26,9 @@ import type { Pegawai } from "@/types";
 import { scanMissingAssetConditions, type MissingAssetConditionIssue } from "@/lib/assetCondition";
 import { EmployeeAutocomplete } from "@/components/ui/EmployeeAutocomplete";
 import { AssetDetailModal } from "@/components/ui/AssetDetailModal";
+import { VehicleFormModal } from "@/components/ui/VehicleFormModal";
+import { EquipmentFormModal } from "@/components/ui/EquipmentFormModal";
+import { PegawaiFormModal } from "@/components/ui/PegawaiFormModal";
 
 // ---------------------------------------------------------------------------
 // Halaman Cleansing (Tahap 6)
@@ -77,6 +81,42 @@ export default function Cleansing() {
   const [conditionIssues, setConditionIssues] = useState<MissingAssetConditionIssue[]>([]);
   const [assetSelections, setAssetSelections] = useState<Record<string, Pegawai | undefined>>({});
   const [assetQueries, setAssetQueries] = useState<Record<string, string>>({});
+
+  // Modal Update Kondisi diganti dengan Modal Form Utama
+  const [editingVehicle, setEditingVehicle] = useState<any>(null);
+  const [editingEquipment, setEditingEquipment] = useState<any>(null);
+  const [editingPegawai, setEditingPegawai] = useState<Pegawai | null>(null);
+
+  const handleEditAsset = (issue: MissingAssetConditionIssue) => {
+    if (issue.kind === "vehicle") {
+      const asset = rawVehicles.find(v => String(v.asset_id) === issue.assetId);
+      if (asset) setEditingVehicle(asset);
+    } else {
+      const asset = rawEquipment.find(v => String(v.asset_id) === issue.assetId);
+      if (asset) setEditingEquipment(asset);
+    }
+  };
+
+  const handleEditAssetByNameIssue = (issue: AssetNameIssue) => {
+    if (issue.sheet === "assets_vehicle") {
+      const asset = rawVehicles.find(v => String(v.asset_id) === issue.assetId);
+      if (asset) setEditingVehicle(asset);
+    } else if (issue.sheet === "assets_equipment") {
+      const asset = rawEquipment.find(v => String(v.asset_id) === issue.assetId);
+      if (asset) setEditingEquipment(asset);
+    }
+  };
+
+  const handleSaveAssetSuccess = async () => {
+    await load(true);
+    setEditingVehicle(null);
+    setEditingEquipment(null);
+  };
+
+  const handleSavePegawaiSuccess = async () => {
+    await load(true);
+    setEditingPegawai(null);
+  };
 
   // Peta NIP → Pegawai (untuk buildCorrectionPayload)
   const pegawaiByNip = useMemo(() => {
@@ -195,7 +235,7 @@ export default function Cleansing() {
     }
   }
 
-  // Isu kecocokan nama aset yang masih aktif (belum diterapkan)
+  // --- Terapkan satu koreksi nama aset (SELALU individual, tidak ada bulk) ---
   const visibleAssetIssues = useMemo(
     () => assetIssues.filter((a) => 
       !assetApplied.has(a.id) && 
@@ -410,9 +450,12 @@ export default function Cleansing() {
                     <p className="text-xs text-gray-500 dark:text-gray-400">Pengguna: {issue.holderName || "Belum diisi"}</p>
                   </div>
                   {canEditAssets ? (
-                    <Link to={issue.editPath} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700">
+                    <button 
+                      onClick={() => handleEditAsset(issue)}
+                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700"
+                    >
                       <ExternalLink size={13} /> Perbaiki
-                    </Link>
+                    </button>
                   ) : (
                     <span className="text-xs italic text-gray-400">Perlu admin/pimpinan</span>
                   )}
@@ -464,16 +507,16 @@ export default function Cleansing() {
           </p>
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <table className="w-full text-left border-collapse">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[600px]">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800 text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                <th className="px-4 py-3 font-semibold">Pegawai</th>
-                <th className="px-4 py-3 font-semibold hidden md:table-cell">Tingkat</th>
-                <th className="px-4 py-3 font-semibold">Masalah &amp; Field</th>
-                <th className="px-4 py-3 font-semibold hidden lg:table-cell">Nilai Saat Ini</th>
-                <th className="px-4 py-3 font-semibold hidden lg:table-cell">Saran Perbaikan</th>
-                <th className="px-4 py-3 font-semibold text-right">Aksi</th>
+                <th className="px-4 py-3 font-bold">Pegawai</th>
+                <th className="px-4 py-3 font-bold hidden md:table-cell">Tingkat</th>
+                <th className="px-4 py-3 font-bold">Masalah &amp; Field</th>
+                <th className="px-4 py-3 font-bold hidden lg:table-cell">Nilai Saat Ini</th>
+                <th className="px-4 py-3 font-bold hidden lg:table-cell">Saran Perbaikan</th>
+                <th className="px-4 py-3 font-bold text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
@@ -552,7 +595,20 @@ export default function Cleansing() {
                       ) : issue.level === "info" ? (
                         <Info size={16} className="text-blue-400 ml-auto" />
                       ) : (
-                        <span className="text-xs text-gray-400 italic">Tinjau</span>
+                        canEdit ? (
+                          <button
+                            onClick={() => {
+                              const p = pegawaiByNip.get(issue.nip);
+                              if (p) setEditingPegawai(p);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors"
+                          >
+                            <Edit2 size={12} />
+                            Perbaiki
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">Perlu admin/pimpinan</span>
+                        )
                       )}
                     </td>
                   </tr>
@@ -628,7 +684,7 @@ export default function Cleansing() {
             </p>
           </div>
         ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-x-auto divide-y divide-gray-100 dark:divide-gray-700/50 min-w-[600px]">
             {visibleAssetIssues.map((issue) => {
               const isBusy = applyingAssetKey === issue.id;
               const confPct = Math.round(issue.similarity * 100);
@@ -654,6 +710,14 @@ export default function Cleansing() {
                       <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${confBadge}`}>
                         {issue.confidence === "belum" ? "Belum terhubung" : `${confPct}% cocok`}
                       </span>
+                      {canEditAssets && (
+                        <button
+                          onClick={() => handleEditAssetByNameIssue(issue)}
+                          className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded"
+                        >
+                          <Edit2 size={10} /> Edit Aset
+                        </button>
+                      )}
                     </div>
                     <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Nama pada data lama/import</p>
                     <p className="mt-1 break-words rounded-lg bg-red-50 px-2 py-1 text-sm font-medium text-red-700 dark:bg-red-900/20 dark:text-red-300">{issue.currentHolder}</p>
@@ -711,6 +775,27 @@ export default function Cleansing() {
         asset={viewingAsset}
         isOpen={!!viewingAsset}
         onClose={() => setViewingAsset(null)}
+      />
+      <VehicleFormModal
+        isOpen={!!editingVehicle}
+        onClose={() => setEditingVehicle(null)}
+        initialData={editingVehicle || {}}
+        employees={pegawaiList}
+        onSaveSuccess={handleSaveAssetSuccess}
+      />
+      <EquipmentFormModal
+        isOpen={!!editingEquipment}
+        onClose={() => setEditingEquipment(null)}
+        initialData={editingEquipment || {}}
+        employees={pegawaiList}
+        onSaveSuccess={handleSaveAssetSuccess}
+      />
+      <PegawaiFormModal
+        isOpen={!!editingPegawai}
+        onClose={() => setEditingPegawai(null)}
+        initialData={editingPegawai}
+        onSuccess={handleSavePegawaiSuccess}
+        user={user}
       />
     </motion.div>
   );

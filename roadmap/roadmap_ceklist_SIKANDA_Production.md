@@ -45,16 +45,16 @@
 
 ## 7\. Revisi Menu Rekap Laporan
 
-- [ ] fitur cetak halaman, Tambahkan watermark logo SIKANDA dengan tampilan proporsional pada setiap halaman tanpa mengganggu pembacaan data hasil cetak.
+- [x] fitur cetak halaman, Tambahkan watermark logo SIKANDA dengan tampilan proporsional pada setiap halaman tanpa mengganggu pembacaan data hasil cetak.
 
 ## 8\. Revisi Menu Kelola Akun
 
-- [ ] Tabel data pegawai, urutan seharusnya Nama Pegawai \- NIP \- Status Pegawai \- Email \- Peran \- Status \- Aksi.  
-- [ ] Judul pada Header Tabel dibuat Tebal (Bold).
+- [x] Tabel data pegawai, urutan seharusnya Nama Pegawai \- NIP \- Status Pegawai \- Email \- Peran \- Status \- Aksi.  
+- [x] Judul pada Header Tabel dibuat Tebal (Bold).
 
 ## 9\. Revisi Menu Data Cleansing
 
-- [ ] Seluruh Data Cleansing dibuat dalam bentuk Tabel yang dapat di scroll.  
-- [ ] Cleansing “Kondisi Aset Belum Diisi” klik “Perbaikan” seharusnya muncul modal popup CRUD Edit Kendaraan, tetapi menu tetap di Data Cleansing tidak berpindah ke menu Data Kendaraan. ini penting agar Administrator dan Pimpinan tidak perlu bolak-balik kembali ke menu Data Cleansing. revisi ini terapkan juga pada bagian Cleansing Pegawai dan Cleansing Nama Pengguna Aset.  
-- [ ] Tebalkan judul Header kolom.
+- [x] Seluruh Data Cleansing dibuat dalam bentuk Tabel yang dapat di scroll.  
+- [x] Cleansing “Kondisi Aset Belum Diisi” klik “Perbaikan” seharusnya muncul modal popup CRUD Edit Kendaraan, tetapi menu tetap di Data Cleansing tidak berpindah ke menu Data Kendaraan. ini penting agar Administrator dan Pimpinan tidak perlu bolak-balik kembali ke menu Data Cleansing. revisi ini terapkan juga pada bagian Cleansing Pegawai dan Cleansing Nama Pengguna Aset.  
+- [x] Tebalkan judul Header kolom.
 

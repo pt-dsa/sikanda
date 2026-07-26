@@ -1,10 +1,3 @@
-import React, { useContext, useEffect, useState, useMemo, useRef } from "react";
-import { dataService } from "@/services/dataService";
-import { Pegawai, Vehicle } from "@/types";
-import { StatusBadge } from "@/components/ui/Badge";
-import { SearchInput } from "@/components/ui/SearchInput";
-import { Card, CardContent } from "@/components/ui/Card";
-import { QrCode, MapPin, Plus, Edit2, Trash2, X, ImageOff, AlertCircle, ZoomIn, CheckSquare, RefreshCw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { DetailModal } from "@/components/ui/DetailModal";
@@ -21,7 +14,7 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { resolveAssetPhotoCandidates, resolveAssetPhotoUrl } from "@/lib/media";
 import { AuthContext } from "@/components/layout/AppShell";
 import { can } from "@/lib/rbac";
-import { VehicleFormModal } from "@/components/ui/VehicleFormModal";
+import { optionalCoordinatePayload } from "@/lib/coordinates";
 import { normalizeAssetText, optionalAssetNumber, validOptionalAssetNumber } from "@/lib/assetFields";
 import {
   ASSET_CONDITIONS,
@@ -179,14 +172,111 @@ export default function Kendaraan() {
     });
   };
 
-  // handleSave is now inside VehicleFormModal
-  const handleSaveSuccess = async () => {
-    await load();
-    setIsEditing(false);
-    setFormData({});
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (saving) return;
+    const isNew = !formData.asset_id;
+    const normalizedCondition = normalizeAssetCondition(formData.kondisi);
+    if (isNew && !isValidAssetCondition(normalizedCondition)) {
+      toast.error("Kondisi Wajib Dipilih", "Pilih kondisi kendaraan berdasarkan hasil pemeriksaan fisik. Data baru tidak boleh dianggap BAIK secara otomatis.");
+      return;
+    }
+    const coordinateResult = optionalCoordinatePayload(formData.latitude, formData.longitude);
+    if (!coordinateResult.pair.valid) {
+      toast.error("Koordinat Tidak Valid", coordinateResult.pair.error);
+      return;
+    }
+    const currentYear = new Date().getFullYear() + 1;
+    if (!validOptionalAssetNumber(formData.tahun, { integer: true, min: 1900, max: currentYear })) {
+      toast.error("Tahun Tidak Valid", `Tahun pembelian harus berupa angka 1900–${currentYear}, atau dikosongkan.`);
+      return;
+    }
+    const nonNegativeFields = [
+      [formData.km_kendaraan, "Kilometer kendaraan"],
+      [formData.kapasitas_mesin, "Kapasitas mesin"],
+      [formData.harga_pembelian, "Harga pembelian"],
+    ] as const;
+    const invalidNumeric = nonNegativeFields.find(([value]) => !validOptionalAssetNumber(value, { min: 0 }));
+    if (invalidNumeric) {
+      toast.error("Nilai Angka Tidak Valid", `${invalidNumeric[1]} harus berupa angka 0 atau lebih, atau dikosongkan.`);
+      return;
+    }
+    const payload: Partial<Vehicle> = {
+      asset_id: formData.asset_id,
+      no_polisi: String(formData.no_polisi || "").trim().toUpperCase(),
+      kode_barang: normalizeAssetText(formData.kode_barang),
+      nama_aset: String(formData.nama_aset || "").trim(),
+      merk: String(formData.merk || "").trim(),
+      tipe: normalizeAssetText(formData.tipe),
+      jenis_kendaraan: normalizeAssetText(formData.jenis_kendaraan),
+      tahun: optionalAssetNumber(formData.tahun),
+      pengguna: normalizeAssetText(formData.pengguna),
+      pengguna_nip: normalizeAssetText(formData.pengguna_nip),
+      penanggung_jawab: normalizeAssetText(formData.penanggung_jawab),
+      penanggung_jawab_nip: normalizeAssetText(formData.penanggung_jawab_nip),
+      lokasi: normalizeAssetText(formData.lokasi || formData.unit_kerja),
+      unit_kerja: normalizeAssetText(formData.unit_kerja || formData.lokasi),
+      km_kendaraan: optionalNumber(formData.km_kendaraan),
+      kapasitas_mesin: optionalNumber(formData.kapasitas_mesin),
+      no_bpkb: normalizeAssetText(formData.no_bpkb),
+      no_rangka: normalizeAssetText(formData.no_rangka),
+      no_mesin: normalizeAssetText(formData.no_mesin),
+      harga_pembelian: optionalNumber(formData.harga_pembelian),
+      foto: formData.foto,
+      qr_url: formData.qr_url,
+      ...coordinateResult.payload,
+    };
+    // Saat mengedit data legacy yang kondisinya kosong/tidak baku, jangan
+    // mengirim kondisi agar perubahan field lain tidak mengubahnya diam-diam.
+    if (isValidAssetCondition(normalizedCondition)) payload.kondisi = normalizedCondition;
+    if (coordinateResult.pair.empty) {
+      delete payload.latitude;
+      delete payload.longitude;
+    }
+
+    if (!payload.no_polisi || !payload.nama_aset || !payload.merk) {
+      toast.error("Data Belum Lengkap", "Nomor Polisi, Nama Aset, dan Merk/Model wajib diisi.");
+      return;
+    }
+    if (!isOfficialEmployeeSelection(payload.pengguna, payload.pengguna_nip, employees)
+      || !isOfficialEmployeeSelection(payload.penanggung_jawab, payload.penanggung_jawab_nip, employees)) {
+      toast.error("Nama Pegawai Tidak Valid", "Pengguna dan Penanggung Jawab harus dipilih dari daftar pegawai.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await dataService.saveVehicle(payload, isNew);
+      if (photoFile) {
+        try {
+          const encoded = await fileToBase64(photoFile);
+          await apiService.uploadAssetFoto({
+            table: "assets_vehicle",
+            assetId: result.asset_id,
+            holderName: String(payload.pengguna || ""),
+            ...encoded,
+          });
+        } catch (photoError: any) {
+          setFormData({ ...payload, asset_id: result.asset_id });
+          await load();
+          toast.warning("Data Tersimpan, Foto Belum Terunggah", photoError?.message || "Silakan pilih foto dan simpan kembali.");
+          return;
+        }
+      }
+      await load();
+      toast.success(isNew ? "Data Kendaraan Berhasil Ditambahkan" : "Perubahan Data Berhasil Disimpan", isNew ? "Data kendaraan dan media telah tersimpan." : "Perubahan data kendaraan telah tersimpan dan tervalidasi.");
+      setIsEditing(false);
+      setFormData({});
+      setPhotoFile(null);
+    } catch (err: any) {
+      toast.error("Gagal Menyimpan", err.message);
+      await load();
+    } finally {
+      setSaving(false);
+    }
   };
 
   function openForm(item?: Vehicle) {
+    setPhotoFile(null);
     if (item) {
       setFormData({ ...item });
     } else {
@@ -609,14 +699,146 @@ export default function Kendaraan() {
           </div>
         </div>
       )}
-          {/* Editing Form */}
-      <VehicleFormModal 
-        isOpen={isEditing} 
-        onClose={() => setIsEditing(false)} 
-        initialData={formData}
-        employees={employees}
-        onSaveSuccess={handleSaveSuccess}
-      />
+
+      {/* Editing Form */}
+      {isEditing && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm transition-all duration-300">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-none sm:rounded-3xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[90dvh] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+                {formData.asset_id ? "Edit Kendaraan" : "Tambah Kendaraan"}
+              </h3>
+              <button 
+                onClick={() => setIsEditing(false)}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleSave} className="flex flex-col overflow-hidden max-h-full">
+              <div className="p-4 sm:p-6 overflow-y-auto overscroll-contain grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2 text-xs font-bold uppercase tracking-wider text-blue-600 border-b border-blue-100 pb-2">Identitas Kendaraan</div>
+                {formData.asset_id && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-gray-500">ID Aset</label>
+                    <input readOnly value={formData.asset_id} className={`${vehicleInputCls} bg-gray-100 dark:bg-gray-800 opacity-70`} />
+                  </div>
+                )}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Kode Barang</label>
+                  <input value={formData.kode_barang || ""} onChange={e => setFormData({...formData, kode_barang: e.target.value})} className={vehicleInputCls} placeholder="Kode inventaris/barang" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Nomor Polisi <span className="text-red-500">*</span></label>
+                  <input required value={formData.no_polisi || ""} onChange={e => setFormData({...formData, no_polisi: e.target.value})} className={vehicleInputCls} placeholder="Contoh: B 1234 ABC" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Nama Aset <span className="text-red-500">*</span></label>
+                  <input required value={formData.nama_aset || ""} onChange={e => setFormData({...formData, nama_aset: e.target.value})} className={vehicleInputCls} placeholder="Contoh: Kendaraan Dinas Roda 4" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Merk / Model <span className="text-red-500">*</span></label>
+                  <input required value={formData.merk || ""} onChange={e => setFormData({...formData, merk: e.target.value})} className={vehicleInputCls} placeholder="Contoh: Toyota Innova" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Tipe</label>
+                  <input value={formData.tipe || ""} onChange={e => setFormData({...formData, tipe: e.target.value})} className={vehicleInputCls} placeholder="Contoh: Minibus" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Jenis Kendaraan</label>
+                  <input value={formData.jenis_kendaraan || ""} onChange={e => setFormData({...formData, jenis_kendaraan: e.target.value})} className={vehicleInputCls} placeholder="Contoh: Kendaraan Roda 4" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Tahun Pembelian</label>
+                  <input type="number" min="1900" max="2100" value={formData.tahun || ""} onChange={e => setFormData({...formData, tahun: e.target.value})} className={vehicleInputCls} placeholder="Contoh: 2018" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Kondisi {!formData.asset_id && <span className="text-red-500">*</span>}</label>
+                  <select required={!formData.asset_id} value={isValidAssetCondition(formData.kondisi) ? normalizeAssetCondition(formData.kondisi) : ""} onChange={e => setFormData({...formData, kondisi: e.target.value})} className={vehicleInputCls}>
+                    <option value="">-- Pilih kondisi berdasarkan pemeriksaan --</option>
+                    {ASSET_CONDITIONS.map((condition) => <option key={condition} value={condition}>{condition}</option>)}
+                  </select>
+                  {!isValidAssetCondition(formData.kondisi) && formData.asset_id && <p className="text-[11px] text-amber-600">Data lama belum memiliki kondisi atau nilainya tidak baku. Pilih kondisi setelah diverifikasi; field lain tetap dapat disimpan tanpa mengubah kondisi.</p>}
+                </div>
+                <div className="md:col-span-2 text-xs font-bold uppercase tracking-wider text-blue-600 border-b border-blue-100 pb-2 mt-2">Penguasaan dan Lokasi</div>
+                <div className="flex flex-col gap-1">
+                  <EmployeeAutocomplete
+                    label="Pengguna"
+                    value={String(formData.pengguna || "")}
+                    selectedNip={String(formData.pengguna_nip || "")}
+                    employees={employees}
+                    onChange={(pengguna) => setFormData((previous) => ({ ...previous, pengguna, pengguna_nip: "" }))}
+                    onSelect={(employee) => employee && setFormData((previous) => ({ ...previous, pengguna: employee.nama, pengguna_nip: employee.nip }))}
+                    placeholder="Cari nama, NIP, atau jabatan pegawai..."
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <EmployeeAutocomplete
+                    label="Penanggung Jawab"
+                    value={String(formData.penanggung_jawab || "")}
+                    selectedNip={String(formData.penanggung_jawab_nip || "")}
+                    employees={employees}
+                    onChange={(penanggung_jawab) => setFormData((previous) => ({ ...previous, penanggung_jawab, penanggung_jawab_nip: "" }))}
+                    onSelect={(employee) => employee && setFormData((previous) => ({ ...previous, penanggung_jawab: employee.nama, penanggung_jawab_nip: employee.nip }))}
+                    placeholder="Cari nama, NIP, atau jabatan pegawai..."
+                  />
+                </div>
+                <div className="flex flex-col gap-1 md:col-span-2">
+                  <label className="text-xs font-medium text-gray-500">Lokasi / Unit Kerja</label>
+                  <input value={formData.lokasi || formData.unit_kerja || ""} onChange={e => setFormData({...formData, lokasi: e.target.value, unit_kerja: e.target.value})} className={vehicleInputCls} placeholder="Lokasi atau unit pengguna kendaraan" />
+                </div>
+
+                <div className="md:col-span-2 text-xs font-bold uppercase tracking-wider text-blue-600 border-b border-blue-100 pb-2 mt-2">Dokumen dan Teknis</div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Kilometer Kendaraan</label>
+                  <input type="number" min="0" value={formData.km_kendaraan ?? ""} onChange={e => setFormData({...formData, km_kendaraan: e.target.value})} className={vehicleInputCls} placeholder="Contoh: 75000" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Kapasitas Mesin (CC)</label>
+                  <input type="number" min="0" value={formData.kapasitas_mesin ?? ""} onChange={e => setFormData({...formData, kapasitas_mesin: e.target.value})} className={vehicleInputCls} placeholder="Contoh: 2000" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Nomor BPKB</label>
+                  <input value={formData.no_bpkb || ""} onChange={e => setFormData({...formData, no_bpkb: e.target.value})} className={vehicleInputCls} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Nomor Rangka</label>
+                  <input value={formData.no_rangka || ""} onChange={e => setFormData({...formData, no_rangka: e.target.value})} className={vehicleInputCls} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Nomor Mesin</label>
+                  <input value={formData.no_mesin || ""} onChange={e => setFormData({...formData, no_mesin: e.target.value})} className={vehicleInputCls} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Harga Pembelian (Rp)</label>
+                  <input type="number" min="0" value={formData.harga_pembelian ?? ""} onChange={e => setFormData({...formData, harga_pembelian: e.target.value})} className={vehicleInputCls} />
+                </div>
+
+                <div className="md:col-span-2 text-xs font-bold uppercase tracking-wider text-blue-600 border-b border-blue-100 pb-2 mt-2">Lokasi Koordinat dan Media</div>
+                <AssetMediaFields
+                  latitude={formData.latitude}
+                  longitude={formData.longitude}
+                  existingPhoto={formData.foto}
+                  selectedFile={photoFile}
+                  onCoordinatesChange={(latitude, longitude) => setFormData({ ...formData, latitude, longitude })}
+                  onFileChange={setPhotoFile}
+                  onError={(message) => toast.error("Lokasi/Media Belum Siap", message)}
+                  photoLabel="Foto Kendaraan"
+                  autoLocate={!formData.asset_id}
+                />
+              </div>
+              <div className="p-3 sm:p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 flex justify-end gap-2 safe-area-bottom">
+                <button type="button" disabled={saving} onClick={() => { setIsEditing(false); setPhotoFile(null); }} className="flex-1 sm:flex-none min-h-11 px-4 py-2 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-full font-medium text-sm transition-all border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 disabled:opacity-50">
+                  Batal
+                </button>
+                <button type="submit" disabled={saving} className="flex-1 sm:flex-none min-h-11 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium text-sm transition-all disabled:opacity-50">
+                  {saving ? "Menyimpan..." : "Simpan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Image Zoom Modal */}
       {zoomedImage && (

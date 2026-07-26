@@ -31,7 +31,7 @@ export function TableRow({ className, ...props }: React.HTMLAttributes<HTMLTable
 export function TableHead({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
-      className={cn("h-12 px-4 text-left align-middle font-medium text-gray-500 dark:text-gray-400 [&:has([role=checkbox])]:pr-0", className)}
+      className={cn("h-12 px-4 text-left align-middle font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 [&:has([role=checkbox])]:pr-0", className)}
       {...props}
     />
   );
