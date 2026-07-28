@@ -1,4 +1,4 @@
-import { callBackend } from "@/services/backendClient";
+import { apiService } from "@/services/apiService";
 
 export type AccessRole = "admin" | "pimpinan" | "pegawai";
 
@@ -22,21 +22,10 @@ export interface AccessUser {
 }
 
 export const accessService = {
-  whoami: async (_email?: string): Promise<WhoamiResult> =>
-    callBackend<WhoamiResult>({ action: "whoami" }),
-
-  userList: async (): Promise<{ ok: true; users: AccessUser[] }> =>
-    callBackend({ action: "user_list" }),
-
-  userSave: async (data: Partial<AccessUser>, isNew: boolean): Promise<{ ok: true; mode?: string; email?: string }> =>
-    callBackend({ action: "user_save", data, isNew }),
-
-  userDelete: async (email: string): Promise<{ ok: true; email: string }> =>
-    callBackend({ action: "user_delete", email }),
-
-  userResetRegistration: async (email: string): Promise<{ ok: true; email: string }> =>
-    callBackend({ action: "user_reset_registration", email }),
-
-  userSeedFromPegawai: async (): Promise<{ ok: true; added: number; note?: string }> =>
-    callBackend({ action: "user_seed_from_pegawai" }),
+  whoami: async () => apiService.whoami(),
+  userList: async () => apiService.userList(),
+  userSave: async (data: Partial<AccessUser>, isNew: boolean) => apiService.userSave(data, isNew),
+  userDelete: async (email: string) => apiService.userDelete(email),
+  userResetRegistration: async (email: string) => apiService.userResetRegistration(email),
+  userSeedFromPegawai: async () => apiService.userSeedFromPegawai(),
 };

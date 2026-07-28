@@ -264,7 +264,7 @@ export interface CleansingIssue {
   kode: IssueCode;
   field: string;        // Kunci field yang bermasalah (sesuai Pegawai interface)
   fieldLabel: string;   // Label tampilan
-  nilaiLama: string;    // Nilai asli dari spreadsheet (untuk konfirmasi)
+  nilaiLama: string;    // Nilai asli dari database (untuk konfirmasi)
   saranPerbaikan: string; // Nilai yang disarankan (untuk auto-koreksi: ini yang ditulis)
   bisaAutoKoreksi: boolean; // true → tombol Terapkan aktif
   level: IssueLevel;

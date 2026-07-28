@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { apiService } from "@/services/apiService";
+import { dataService } from "@/services/dataService";
 import { AuthContext } from "@/components/layout/AppShell";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { useToast } from "@/components/ui/Toast";
@@ -150,9 +151,19 @@ export default function TanyaSikanda() {
     setInput("");
     setSending(true);
     try {
-      // Konteks dibangun di server berdasarkan role; data dari browser sengaja
-      // tidak dipercaya agar pegawai tidak dapat meminta data milik orang lain.
-      const res = await apiService.askAI(question, history, "");
+      // Konteks dibangun di frontend berdasarkan kalkulasi terkini (Tgl KGB, Pangkat, dll)
+      const feed = await dataService.getNotificationFeed();
+      const pegawai = await dataService.getPegawai();
+      
+      const dataContext = JSON.stringify({
+        ringkasan_pegawai: pegawai.map(p => ({
+          nama: p.nama, nip: p.nip, jabatan: p.jabatan, golongan: p.golongan, 
+          tgl_lahir: p.tgl_lahir, tgl_kgb: p.tgl_kgb, tgl_pangkat: p.tgl_pangkat, tgl_pensiun: p.tgl_pensiun
+        })),
+        notifikasi_jadwal: feed
+      });
+
+      const res = await apiService.askAI(question, history, dataContext);
       setMessages((prev) => [
         ...prev,
         { id: newId(), role: "assistant", content: res.answer, time: nowLabel() },

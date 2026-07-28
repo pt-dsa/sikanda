@@ -14,7 +14,11 @@ export default defineConfig(() => {
       react(), 
       tailwindcss(),
       VitePWA({
-        registerType: 'prompt',
+        registerType: 'autoUpdate',
+        workbox: {
+          cleanupOutdatedCaches: true,
+          clientsClaim: true,
+        },
         includeAssets: ['pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           name: 'SIKANDA',
@@ -76,6 +80,7 @@ export default defineConfig(() => {
               ) {
                 return 'vendor-react';
               }
+              return 'vendor';
             }
           },
         },

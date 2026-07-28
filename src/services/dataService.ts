@@ -2,8 +2,8 @@ import { normalizeData } from "@/lib/utils";
 import { nextCycleDate, pensionDate, buildPenjagaanEvents } from "@/lib/penjagaan";
 import { buildUnifiedAssets, buildFuzzyNipSet, rekapKelengkapan } from "@/lib/kelengkapan";
 import type { DashboardMetrics, DistribusiItem } from "@/types";
-import { backendSelect } from "@/services/backendClient";
 import { apiService } from "@/services/apiService";
+import { supabase } from "@/lib/supabaseClient";
 import { normalizeIndonesianPhoneNumber } from "@/lib/contact";
 import { resolveVehicleItemCode } from "@/lib/assetIdentity";
 import { coordinatePairFromRow } from "@/lib/coordinates";
@@ -21,31 +21,10 @@ function cacheTableRows(table: string, rows: any[], timestamp = Date.now()) {
   sessionStorage.setItem("data_last_updated", new Date(timestamp).toISOString());
 }
 
-async function primeDashboardSnapshot() {
-  if (typeof sessionStorage !== "undefined") {
-    const required = ["pegawai", "assets_vehicle", "assets_equipment", "asset_locations", "system_config"];
-    const complete = required.every((table) => {
-      const cached = sessionStorage.getItem(`supabase_v2_backend_${table}`);
-      if (!cached) return false;
-      try { return Date.now() - JSON.parse(cached).timestamp < CACHE_EXPIRY; }
-      catch { return false; }
-    });
-    if (complete) return;
-  }
-  const snapshot = await apiService.getDashboardSnapshot();
-  const timestamp = Date.now();
-  cacheTableRows("pegawai", snapshot.data.pegawai || [], timestamp);
-  cacheTableRows("assets_vehicle", snapshot.data.assets_vehicle || [], timestamp);
-  cacheTableRows("assets_equipment", snapshot.data.assets_equipment || [], timestamp);
-  cacheTableRows("asset_locations", snapshot.data.asset_locations || [], timestamp);
-  cacheTableRows("system_config", snapshot.data.system_config || [], timestamp);
-}
+// primeDashboardSnapshot dihilangkan karena Supabase menggunakan individual fetch
 
 // ---------------------------------------------------------------------------
-// Core fetch — FIXED: detect GViz API error response (not just HTML pages)
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-// Core fetch — Now using Supabase!
+// Core fetch — Supabase Integration
 // ---------------------------------------------------------------------------
 async function fetchTableData(
   tableName: string,
@@ -69,8 +48,13 @@ async function fetchTableData(
 
     let request = inFlight.get(cacheKey);
     if (!request) {
-      request = backendSelect(tableName, filters).finally(() => inFlight.delete(cacheKey));
+      request = (async () => {
+        const { data, error } = await supabase.from(tableName).select('*');
+        if (error) throw error;
+        return data || [];
+      })();
       inFlight.set(cacheKey, request);
+      request.finally(() => inFlight.delete(cacheKey));
     }
     const resultData = await request;
 
@@ -501,7 +485,7 @@ export const dataService = {
   async getMaintenanceForecast() { return { avgMonthlyCost: 0, sixMonthTotal: 0, forecastData: [] }; },
 
   // ---------------------------------------------------------------------------
-  // getPegawai — with GViz fix + robust column detection
+  // getPegawai — with robust column detection
   // ---------------------------------------------------------------------------
   async getPegawai(options: { allowDeferredPhotos?: boolean } = {}) {
     try {
@@ -512,12 +496,7 @@ export const dataService = {
         this.getSystemSettings(),
       ]);
 
-      // Debug: log what columns are detected in sheet pegawai
-      if (rawPegawai.length > 0) {
-        const cols = Object.keys(rawPegawai[0]);
-        console.log("[SIKANDA] ✅ Sheet 'pegawai' ditemukan.", rawPegawai.length, "baris. Kolom:", cols);
-      } else {
-        console.warn("[SIKANDA] ⚠️ Sheet 'pegawai' ditemukan tapi kosong (0 baris data).");
+      if (rawPegawai.length === 0) {
         return [];
       }
 
@@ -656,7 +635,6 @@ export const dataService = {
   // getDashboardMetrics — robust: isolasi error pegawai dari error aset
   // ---------------------------------------------------------------------------
   async getDashboardMetrics(): Promise<DashboardMetrics> {
-    await primeDashboardSnapshot();
     // Jalankan semua fetch paralel; isolasi error per grup
     const [
       pegawaiResult,
@@ -759,6 +737,72 @@ export const dataService = {
       lastUpdated: this.getLastUpdated(),
       assetTrends: trendYears.map((y) => trendsMap[y]),
       maintenanceForecast: forecast,
+    };
+  },
+
+  // ---------------------------------------------------------------------------
+  // getNotificationFeed — Client-side generated feed
+  // ---------------------------------------------------------------------------
+  async getNotificationFeed(): Promise<any> {
+    const pegawai = await this.getPegawai();
+    const eventsAll = buildPenjagaanEvents(pegawai);
+    
+    // Batasi notifikasi ke 6 bulan mendatang (180 hari)
+    const isUpcomingLe6 = (e: any) => !e.isOverdue && e.selisihHari <= 180;
+    // Batasi notifikasi terlewat maksimal 60 hari yang lalu
+    const isRecentOverdue = (e: any) => e.isOverdue && e.selisihHari >= -60;
+    
+    const mapEvent = (e: any) => ({
+      nip: e.nip, nama: e.nama, jabatan: e.jabatan,
+      kategori: e.kategori, kategoriLabel: e.kategoriLabel,
+      tanggal: e.tanggal, selisihHari: e.selisihHari
+    });
+
+    const overdue = eventsAll.filter(isRecentOverdue).map(mapEvent);
+    const kgb = eventsAll.filter((e: any) => e.kategori === "KGB" && isUpcomingLe6(e)).map(mapEvent);
+    const pangkat = eventsAll.filter((e: any) => e.kategori === "PANGKAT" && isUpcomingLe6(e)).map(mapEvent);
+    const bup = eventsAll.filter((e: any) => e.kategori === "BUP" && isUpcomingLe6(e)).map(mapEvent);
+
+    const birthdays: Array<{ nip: string; nama: string; jabatan: string; tanggal: string; daysUntil: number }> = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (const p of pegawai) {
+      if (!p.tgl_lahir) continue;
+      const m = String(p.tgl_lahir).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (!m) continue;
+      
+      const bMonth = parseInt(m[2]) - 1;
+      const bDate = parseInt(m[3]);
+      
+      let bThisYear = new Date(today.getFullYear(), bMonth, bDate);
+      if (bThisYear < today) {
+        bThisYear = new Date(today.getFullYear() + 1, bMonth, bDate);
+      }
+      
+      const diffTime = bThisYear.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays <= 7) {
+        birthdays.push({
+          nip: String(p.nip || ""),
+          nama: String(p.nama || ""),
+          jabatan: String(p.jabatan || ""),
+          tanggal: String(p.tgl_lahir || ""),
+          daysUntil: diffDays
+        });
+      }
+    }
+    birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
+
+    return {
+      ok: true,
+      generated_at: new Date().toISOString(),
+      birthdays,
+      overdue,
+      kgb,
+      pangkat,
+      bup
     };
   },
 };

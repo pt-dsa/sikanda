@@ -1,33 +1,7 @@
 import React from "react";
-import { motion } from "motion/react";
 import { Wrench } from "lucide-react";
+import { ComingSoonV2Card } from "@/components/ui/ComingSoonV2Card";
 
 export default function PemeliharaanKendaraan() {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 280, damping: 20 }}
-        className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 p-8 md:p-12 rounded-3xl max-w-lg w-full shadow-2xl dark:shadow-none relative overflow-hidden"
-      >
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 dark:bg-blue-500/5 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-3xl"></div>
-        
-        <div className="relative z-10 flex flex-col items-center">
-          <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mb-6 shadow-inner">
-            <Wrench className="w-10 h-10 text-blue-600 dark:text-blue-400" />
-          </div>
-          
-          <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white mb-3 tracking-tight">
-            Menu Pemeliharaan Kendaraan dalam Pengembangan
-          </h1>
-          
-          <p className="text-base text-gray-600 dark:text-gray-400 max-w-md mx-auto leading-relaxed">
-            Menu Pemeliharaan Kendaraan dalam pengembangan, nantikan pada SIKANDA Versi 2.
-          </p>
-        </div>
-      </motion.div>
-    </div>
-  );
+  return <ComingSoonV2Card title="Menu Pemeliharaan Kendaraan" icon={Wrench} />;
 }

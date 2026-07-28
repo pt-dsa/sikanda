@@ -43,7 +43,7 @@ export function VehicleFormModal({ isOpen, onClose, initialData, employees, onSa
     e.preventDefault();
     if (saving) return;
 
-    if (!String(formData.nopol || "").trim() || !String(formData.nama_aset || "").trim() || !String(formData.merk || "").trim()) {
+    if (!String(formData.no_polisi || "").trim() || !String(formData.nama_aset || "").trim() || !String(formData.merk || "").trim()) {
       toast.warning("Data Belum Lengkap", "Nomor Polisi, Nama Barang, dan Merk wajib diisi.");
       return;
     }
@@ -79,26 +79,23 @@ export function VehicleFormModal({ isOpen, onClose, initialData, employees, onSa
 
     const payload: Partial<Vehicle> = {
       asset_id: formData.asset_id,
-      nopol: String(formData.nopol || "").trim().toUpperCase(),
+      no_polisi: String(formData.no_polisi || "").trim().toUpperCase(),
       nama_aset: String(formData.nama_aset || "").trim(),
       merk: String(formData.merk || "").trim(),
       tipe: normalizeAssetText(formData.tipe),
-      jenis: normalizeAssetText(formData.jenis),
+      jenis_kendaraan: normalizeAssetText(formData.jenis_kendaraan),
       tahun: optionalAssetNumber(formData.tahun),
       pengguna: normalizeAssetText(formData.pengguna),
       pengguna_nip: normalizeAssetText(formData.pengguna_nip),
       penanggung_jawab: normalizeAssetText(formData.penanggung_jawab),
       penanggung_jawab_nip: normalizeAssetText(formData.penanggung_jawab_nip),
       lokasi: normalizeAssetText(formData.lokasi),
-      keterangan: normalizeAssetText(formData.keterangan),
-      nomor_bpkb: normalizeAssetText(formData.nomor_bpkb),
-      nomor_rangka: normalizeAssetText(formData.nomor_rangka),
-      nomor_mesin: normalizeAssetText(formData.nomor_mesin),
+      no_bpkb: normalizeAssetText(formData.no_bpkb),
+      no_rangka: normalizeAssetText(formData.no_rangka),
+      no_mesin: normalizeAssetText(formData.no_mesin),
       harga_pembelian: optionalAssetNumber(formData.harga_pembelian),
       foto: formData.foto,
       qr_url: formData.qr_url,
-      opd: normalizeAssetText(formData.opd),
-      kib_index: normalizeAssetText(formData.kib_index),
       ...coordinateResult.payload,
     };
     if (isValidAssetCondition(normalizedCondition)) {
@@ -168,18 +165,10 @@ export function VehicleFormModal({ isOpen, onClose, initialData, employees, onSa
             
             <div className="flex flex-col gap-1">
               <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Nomor Polisi *</label>
-              <input required value={formData.nopol || ""} onChange={e => setFormData({...formData, nopol: e.target.value.toUpperCase()})} className={vehicleInputCls} placeholder="Contoh: AB 1234 CD" />
+              <input required value={formData.no_polisi || ""} onChange={e => setFormData({...formData, no_polisi: e.target.value.toUpperCase()})} className={vehicleInputCls} placeholder="Contoh: AB 1234 CD" />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-500">OPD</label>
-              <input value={formData.opd || ""} onChange={e => setFormData({...formData, opd: e.target.value})} className={vehicleInputCls} placeholder="Nama OPD penanggung jawab" />
-            </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-500">KIB / INDEX</label>
-              <input value={formData.kib_index || ""} onChange={e => setFormData({...formData, kib_index: e.target.value})} className={vehicleInputCls} placeholder="Contoh: 01.01 / 1" />
-            </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Nama Kendaraan *</label>
@@ -198,7 +187,7 @@ export function VehicleFormModal({ isOpen, onClose, initialData, employees, onSa
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-500">Jenis Pemakaian</label>
-              <input value={formData.jenis || ""} onChange={e => setFormData({...formData, jenis: e.target.value})} className={vehicleInputCls} placeholder="Contoh: Roda 4" />
+              <input value={formData.jenis_kendaraan || ""} onChange={e => setFormData({...formData, jenis_kendaraan: e.target.value})} className={vehicleInputCls} placeholder="Contoh: Roda 4" />
             </div>
 
             <div className="flex flex-col gap-1">
@@ -213,17 +202,17 @@ export function VehicleFormModal({ isOpen, onClose, initialData, employees, onSa
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-500">Nomor BPKB</label>
-              <input value={formData.nomor_bpkb || ""} onChange={e => setFormData({...formData, nomor_bpkb: e.target.value})} className={vehicleInputCls} placeholder="Nomor BPKB Kendaraan" />
+              <input value={formData.no_bpkb || ""} onChange={e => setFormData({...formData, no_bpkb: e.target.value})} className={vehicleInputCls} placeholder="Nomor BPKB Kendaraan" />
             </div>
             
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-500">Nomor Mesin</label>
-              <input value={formData.nomor_mesin || ""} onChange={e => setFormData({...formData, nomor_mesin: e.target.value})} className={vehicleInputCls} placeholder="Nomor Mesin" />
+              <input value={formData.no_mesin || ""} onChange={e => setFormData({...formData, no_mesin: e.target.value})} className={vehicleInputCls} placeholder="Nomor Mesin" />
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-500">Nomor Rangka</label>
-              <input value={formData.nomor_rangka || ""} onChange={e => setFormData({...formData, nomor_rangka: e.target.value})} className={vehicleInputCls} placeholder="Nomor Rangka" />
+              <input value={formData.no_rangka || ""} onChange={e => setFormData({...formData, no_rangka: e.target.value})} className={vehicleInputCls} placeholder="Nomor Rangka" />
             </div>
 
             <div className="md:col-span-2">
@@ -275,10 +264,7 @@ export function VehicleFormModal({ isOpen, onClose, initialData, employees, onSa
               <input value={formData.lokasi || ""} onChange={e => setFormData({...formData, lokasi: e.target.value})} className={vehicleInputCls} placeholder="Lokasi penempatan kendaraan" />
             </div>
 
-            <div className="flex flex-col gap-1 md:col-span-2">
-              <label className="text-xs font-medium text-gray-500">Keterangan Tambahan</label>
-              <textarea rows={2} value={formData.keterangan || ""} onChange={e => setFormData({...formData, keterangan: e.target.value})} className={vehicleInputCls} placeholder="Catatan atau keterangan lainnya" />
-            </div>
+
 
             <div className="md:col-span-2 text-xs font-bold uppercase tracking-wider text-blue-600 border-b border-blue-100 pb-2 mt-2">
               Lokasi Koordinat dan Media

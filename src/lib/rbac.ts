@@ -1,10 +1,9 @@
 // ---------------------------------------------------------------------------
 // SIKANDA — RBAC (Role-Based Access Control)
 // ---------------------------------------------------------------------------
-// SUMBER KEBENARAN IZIN ADA DI KODE INI, BUKAN DI SHEET (disepakati Tahap 3).
-// Alasan: aturan keamanan harus ter-review & tidak rawan salah-edit di
-// spreadsheet publik. Sheet `app_access` HANYA menyimpan siapa (email) + peran
-// (role) + relasi (nip) + status aktif — bukan aturan izinnya.
+// SUMBER KEBENARAN IZIN ADA DI KODE INI, BUKAN DI DATABASE (disepakati Tahap 3).
+// Alasan: aturan keamanan harus ter-review secara kode. Tabel `app_access` HANYA menyimpan
+// identitas (email), peran (role), relasi (nip), dan status aktif pengguna — bukan aturan izinnya.
 //
 // Tiga peran:
 //   - admin    : CRUD penuh, approval, akun, konfigurasi, dan cleansing.
@@ -15,7 +14,7 @@
 
 export type Role = "admin" | "pimpinan" | "pegawai";
 
-/** Identitas pengguna aplikasi (hasil pencocokan email → sheet app_access). */
+/** Identitas pengguna aplikasi (hasil pencocokan email → tabel app_access). */
 export interface AppUser {
   email: string;
   role: Role;
@@ -32,6 +31,7 @@ export type MenuKey =
   | "pegawai"
   | "buku-penjagaan"
   | "kendaraan"
+  | "alat-mesin"
   | "inventaris"
   | "pagu"
   | "pemeliharaan-kendaraan"
@@ -79,6 +79,7 @@ const ALL_MENUS: MenuKey[] = [
   "pegawai",
   "buku-penjagaan",
   "kendaraan",
+  "alat-mesin",
   "inventaris",
   "pagu",
   "pemeliharaan-kendaraan",

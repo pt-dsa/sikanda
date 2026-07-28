@@ -221,8 +221,6 @@ export function PegawaiFormModal({
     }
   }, [isOpen, initialData]);
 
-  if (!isOpen) return null;
-
   // handleChange STABIL — useCallback + functional updater (deps kosong sengaja).
   const handleChange = useCallback((e: any) => {
     const { name, value } = e.target;
@@ -241,6 +239,8 @@ export function PegawaiFormModal({
       return { ...prev, status: value, kategori_pppk: "" };
     });
   }, []);
+
+  if (!isOpen) return null;
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

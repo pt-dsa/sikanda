@@ -5,7 +5,7 @@ import {
   ScanSearch, RefreshCw, CheckCircle2, AlertTriangle,
   ShieldAlert, Info, ChevronDown, ChevronUp, Zap, Check,
   UserCheck2, ExternalLink, Wrench, X,
- Edit2,
+ Edit2, Search,
 } from "lucide-react";
 import { dataService } from "@/services/dataService";
 import { apiService } from "@/services/apiService";
@@ -492,15 +492,16 @@ export default function Cleansing() {
                         {issue.holderName || "Belum diisi"}
                       </td>
                       <td className="px-4 py-3 align-top text-right">
-                    <button 
-                      onClick={() => handleEditAsset(issue)}
-                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700"
-                    >
-                      <ExternalLink size={13} /> Perbaiki
-                    </button>
-                  ) : (
-                        <span className="text-xs italic text-gray-400">Perlu admin/pimpinan</span>
-                      )}
+                        {canEdit ? (
+                          <button 
+                            onClick={() => handleEditAsset(issue)}
+                            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700"
+                          >
+                            <ExternalLink size={13} /> Perbaiki
+                          </button>
+                        ) : (
+                          <span className="text-xs italic text-gray-400">Perlu admin/pimpinan</span>
+                        )}
                       </td>
                     </tr>
                   ))}

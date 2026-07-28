@@ -38,6 +38,8 @@ echo Memulai Vite Development Server...
 echo Hot Module Replacement (HMR) AKTIF.
 echo Setiap perubahan koding akan otomatis refresh di browser!
 echo ========================================================
+echo Membersihkan port 3000 dari server lama yang masih nyangkut...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr /R /C:":3000 " ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 cd /d "%~dp0"
 call npm run dev
 if "%~1"=="" pause
@@ -49,6 +51,8 @@ echo ========================================================
 echo Membangun Aplikasi SIKANDA (Production Build)...
 echo Mohon tunggu, proses ini membutuhkan beberapa waktu.
 echo ========================================================
+echo Membersihkan port 3000 dari server lama yang masih nyangkut...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr /R /C:":3000 " ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 cd /d "%~dp0"
 call npm run build
 if %errorlevel% neq 0 (

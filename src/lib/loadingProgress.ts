@@ -23,8 +23,8 @@ function manageAutoProgress() {
     autoProgressTimer = window.setInterval(() => {
       let changed = false;
       tasks.forEach((task) => {
-        if (!task.completed && task.progress < 92) {
-          const increment = Math.max(1, Math.floor((95 - task.progress) / 12));
+        if (!task.completed && task.progress < 99) {
+          const increment = Math.max(1, Math.floor((100 - task.progress) / 25));
           task.progress += increment;
           changed = true;
         }

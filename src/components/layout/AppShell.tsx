@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from "react";
 import { Navigate, NavLink, Link, useLocation } from "react-router-dom";
 import { 
-  LayoutDashboard, CarFront, Wrench, Package, WalletCards, 
+  LayoutDashboard, CarFront, Wrench, Package, WalletCards, Box,
   Settings, LogOut, Menu, Map, FileText, CalendarClock, Users, Bell, CalendarCheck, UserCog, ScanSearch, MessagesSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,8 +11,8 @@ import { GlobalSearch } from "@/components/ui/GlobalSearch";
 import { dataService } from "@/services/dataService";
 import { apiService } from "@/services/apiService";
 import { authService, type CaptchaProof } from "@/services/authService";
-import { clearAuthSession, readAuthSession } from "@/lib/authSession";
 import { canViewMenu, type AppUser, type MenuKey } from "@/lib/rbac";
+import { supabase } from "@/lib/supabaseClient";
 import { motion, AnimatePresence } from "motion/react";
 import { PegawaiFormModal } from "@/components/ui/PegawaiFormModal";
 import { PegawaiAvatar } from "@/components/ui/PegawaiDetailModal";
@@ -74,7 +74,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setLoading(true);
       try {
-        if (!readAuthSession()) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
         const identity = await apiService.whoami();
         if (active) setUser(appUserFromIdentity(identity));
       } catch (e: any) {
@@ -91,8 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const invalidate = () => {
-      clearAuthSession();
+    const invalidate = async () => {
+      await supabase.auth.signOut();
       dataService.clearCache();
       setUser(null);
       setLoading(false);
@@ -114,7 +115,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       failLoadingTask("auth");
       setUser(null);
       dataService.clearCache();
-      clearAuthSession();
       throw e;
     } finally {
       setLoading(false);
@@ -132,7 +132,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       failLoadingTask("auth");
       setUser(null);
-      clearAuthSession();
       throw error;
     } finally {
       setLoading(false);
@@ -146,7 +145,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await authService.logout();
     } finally {
-      clearAuthSession();
       dataService.clearCache();
       setLoading(false);
     }
@@ -165,6 +163,7 @@ const navItems: { icon: any; label: string; href: string; menu: MenuKey }[] = [
   { icon: CalendarCheck, label: "Buku Penjagaan", href: "/buku-penjagaan", menu: "buku-penjagaan" },
   { icon: CarFront, label: "Data Kendaraan", href: "/kendaraan", menu: "kendaraan" },
   { icon: Package, label: "Inventaris", href: "/inventaris", menu: "inventaris" },
+  { icon: Box, label: "Alat & Mesin", href: "/alat-mesin", menu: "alat-mesin" },
   { icon: WalletCards, label: "Pagu Anggaran", href: "/pagu", menu: "pagu" },
   { icon: Wrench, label: "Pemeliharaan Kendaraan", href: "/pemeliharaan-kendaraan", menu: "pemeliharaan-kendaraan" },
   { icon: CalendarClock, label: "Peminjaman", href: "/peminjaman", menu: "peminjaman" },
@@ -379,8 +378,9 @@ function Header({
   useEffect(() => {
     async function loadAlerts() {
       try {
-        if (!readAuthSession()) return;
-        setFeed(await apiService.getNotificationFeed());
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        setFeed(await dataService.getNotificationFeed());
       } catch (err: any) {
         if (!/Sesi/i.test(err?.message || "")) {
           console.error("Error loading alerts:", err);
@@ -431,12 +431,7 @@ function Header({
   return (
     <header className="flex-shrink-0 sticky top-0 z-40 flex min-h-16 flex-wrap sm:flex-nowrap items-center justify-between gap-y-2 neuglass rounded-none border-t-0 border-x-0 px-3 py-2 sm:py-0 md:px-6">
       <div className="order-1 flex items-center gap-2 sm:gap-4 flex-shrink-0">
-        <button 
-          className="md:hidden p-2.5 rounded-xl neuglass text-gray-600 dark:text-gray-300 active:neuglass-pressed transition-all hover:text-blue-600 dark:hover:text-blue-400 active:scale-95"
-          onClick={() => setMobileSidebarOpen(true)}
-        >
-          <Menu size={20} />
-        </button>
+        <div className="md:hidden text-lg font-bold text-blue-700 dark:text-blue-500 px-2 tracking-tight">SIKANDA</div>
         <button 
           className="hidden md:block p-2.5 rounded-xl neuglass text-gray-600 dark:text-gray-300 active:neuglass-pressed transition-all hover:text-blue-600 dark:hover:text-blue-400 active:scale-95"
           onClick={() => setDesktopSidebarOpen(!desktopSidebarOpen)}
@@ -589,6 +584,39 @@ function Header({
   );
 }
 
+function BottomNav({ setMobileSidebarOpen }: { setMobileSidebarOpen: (v: boolean) => void }) {
+  const location = useLocation();
+  const { user } = useContext(AuthContext);
+  
+  const bottomItems = [
+    { icon: LayoutDashboard, label: "Home", href: "/dashboard", menu: "dashboard" as MenuKey },
+    { icon: Users, label: "Pegawai", href: "/pegawai", menu: "pegawai" as MenuKey },
+    { icon: Package, label: "Aset", href: "/inventaris", menu: "inventaris" as MenuKey },
+    { icon: Map, label: "Peta", href: "/peta", menu: "peta" as MenuKey },
+  ].filter(it => canViewMenu(user?.role, it.menu));
+
+  return (
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[60] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-200/50 dark:border-gray-800/50 pb-safe">
+      <div className="flex justify-around items-center h-16 px-2">
+        {bottomItems.map((item) => {
+          const isActive = location.pathname.startsWith(item.href);
+          const Icon = item.icon;
+          return (
+            <Link key={item.href} to={item.href} className={cn("flex flex-col items-center justify-center w-full h-full gap-1", isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400")}>
+              <Icon size={20} strokeWidth={isActive ? 2.5 : 2} className={cn("transition-transform duration-200", isActive ? "scale-110" : "")} />
+              <span className="text-[10px] font-medium">{item.label}</span>
+            </Link>
+          );
+        })}
+        <button onClick={() => setMobileSidebarOpen(true)} className="flex flex-col items-center justify-center w-full h-full gap-1 text-gray-500 dark:text-gray-400">
+          <Menu size={20} strokeWidth={2} />
+          <span className="text-[10px] font-medium">Menu</span>
+        </button>
+      </div>
+    </nav>
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isMapPage = location.pathname.startsWith("/peta");
@@ -666,11 +694,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             />
           )}
         </AnimatePresence>
-        <main className={cn("flex-1 min-h-0 overscroll-y-contain", isMapPage ? "overflow-hidden" : "overflow-y-auto")}>
-          <div className={cn("mx-auto w-full", isMapPage ? "h-full max-w-none p-0" : "p-4 md:p-6 lg:p-8 max-w-[1600px] md:h-full")}>
+        <main className={cn("flex-1 min-h-0 overscroll-y-contain relative", isMapPage ? "overflow-hidden" : "overflow-y-auto")}>
+          <div className={cn("mx-auto w-full", isMapPage ? "h-full max-w-none p-0" : "p-4 pb-24 md:pb-6 md:p-6 lg:p-8 max-w-[1600px] md:h-full")}>
             {children}
           </div>
         </main>
+        <BottomNav setMobileSidebarOpen={setMobileSidebarOpen} />
       </div>
     </div>
   );

@@ -30,3 +30,4 @@ Thumbs.db
 patch-*.ts
 test-*.ts
 firebase-applet-config.json
+supabase/.temp/
